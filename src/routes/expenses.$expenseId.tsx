@@ -23,7 +23,6 @@ import {
   CategoryPill,
   PrimaryButton,
   SecondaryButton,
-  StatusPill,
   UserCell,
 } from "@/components/expense-ui";
 import { useExpenses } from "@/lib/app-data";
@@ -99,7 +98,6 @@ function ExpenseDetailsPage() {
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <CategoryPill category={expense.category} />
-            <StatusPill status={expense.status} />
             <span className="text-[15px] text-muted-foreground">
               {formatDate(expense.expense_date)}
             </span>

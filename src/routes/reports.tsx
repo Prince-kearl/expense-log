@@ -13,7 +13,7 @@ import {
 import { BarChart3, CalendarDays, Download, TrendingUp, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, PageHeader, SecondaryButton, StatCard, fieldClass } from "@/components/expense-ui";
+import { Card, KpiCarousel, PageHeader, SecondaryButton, SelectField, StatCard } from "@/components/expense-ui";
 import { useExpenses } from "@/lib/app-data";
 import { CATEGORY_COLORS, formatMoney, formatMoneyShort } from "@/lib/expenses";
 
@@ -115,10 +115,10 @@ function ReportsPage() {
         icon={<BarChart3 className="h-4 w-4" />}
         actions={
           <>
-            <select
+            <SelectField
               value={selectedMonth}
               onChange={(event) => setReportingMonth(event.target.value)}
-              className={`${fieldClass} h-11 w-full sm:w-[154px]`}
+              className="h-11 w-full sm:w-[154px]"
             >
               {reportingMonths.length === 0 ? <option value={selectedMonth}>{selectedMonth}</option> : null}
               {reportingMonths.map((month) => (
@@ -126,11 +126,15 @@ function ReportsPage() {
                   {new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </option>
               ))}
-            </select>
-            <select value={category} onChange={(event) => setCategory(event.target.value)} className={`${fieldClass} h-11 w-full sm:w-[154px]`}>
+            </SelectField>
+            <SelectField
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              className="h-11 w-full sm:w-[154px]"
+            >
               <option value="all">All Categories</option>
               {categories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}
-            </select>
+            </SelectField>
             <SecondaryButton onClick={exportReport} className="w-full justify-center sm:w-auto">
               <Download className="h-4 w-4" /> Export
             </SecondaryButton>
@@ -138,11 +142,11 @@ function ReportsPage() {
         }
       />
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <KpiCarousel gridClassName="sm:grid-cols-3">
         <StatCard icon={<Wallet className="h-4 w-4 text-primary" />} iconClass="bg-primary-soft" accentClass="border-t-primary" label="Total Spending" value={formatMoneyShort(total)} deltaNote={new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
         <StatCard icon={<CalendarDays className="h-4 w-4 text-success" />} iconClass="bg-success-soft" accentClass="border-t-success" label="Transactions" value={String(scoped.length)} deltaNote={category === "all" ? "All categories" : category} />
         <StatCard icon={<TrendingUp className="h-4 w-4 text-violet" />} iconClass="bg-violet-soft" accentClass="border-t-violet" label="Highest Month" value={formatMoneyShort(peak.value)} deltaNote={`${peak.label} ${year}`} />
-      </div>
+      </KpiCarousel>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Card className="p-4 sm:p-6">
@@ -239,7 +243,47 @@ function ReportsPage() {
             Ranked by total spend for {new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
           </p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border/70 sm:hidden">
+          {byCategory.map((c, i) => {
+            const share = total ? (c.amount / total) * 100 : 0;
+            return (
+              <div key={c.name} className="flex items-center gap-3 px-6 py-4">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 text-[15px] font-medium text-foreground">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)" }}
+                    />
+                    <span className="truncate">{c.name}</span>
+                  </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${share}%`,
+                          backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)",
+                        }}
+                      />
+                    </div>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">{share.toFixed(1)}%</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[15px] font-semibold whitespace-nowrap text-foreground">
+                    {formatMoney(c.amount)}
+                  </p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">{c.count} txns</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[760px] text-left">
             <thead>
               <tr className="border-y border-border text-[13px] text-muted-foreground">

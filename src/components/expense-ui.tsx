@@ -1,10 +1,69 @@
-import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { CATEGORY_BADGE, STATUS_BADGE, initials } from "@/lib/expenses";
+import { Children, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
+import { CATEGORY_BADGE, initials } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn("card-surface", className)}>{children}</div>;
+}
+
+export function KpiCarousel({
+  children,
+  gridClassName = "sm:grid-cols-2 xl:grid-cols-4",
+}: {
+  children: ReactNode;
+  gridClassName?: string;
+}) {
+  const items = Children.toArray(children);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  function handleScroll() {
+    const el = scrollerRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const index = Math.round(el.scrollLeft / el.clientWidth);
+    setActive(Math.min(items.length - 1, Math.max(0, index)));
+  }
+
+  function goTo(index: number) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  }
+
+  return (
+    <div>
+      <div
+        ref={scrollerRef}
+        onScroll={handleScroll}
+        className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-1 sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((child, i) => (
+          <div key={i} className="w-full shrink-0 snap-center">
+            {child}
+          </div>
+        ))}
+      </div>
+      {items.length > 1 ? (
+        <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Go to card ${i + 1}`}
+              onClick={() => goTo(i)}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === active ? "w-5 bg-primary" : "w-1.5 bg-border",
+              )}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      <div className={cn("hidden gap-5 sm:grid", gridClassName)}>{items}</div>
+    </div>
+  );
 }
 
 export function StatCard({
@@ -76,19 +135,6 @@ export function CategoryPill({ category }: { category: string }) {
       )}
     >
       {category}
-    </span>
-  );
-}
-
-export function StatusPill({ status }: { status: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-2.5 py-1 text-[13px] font-medium",
-        STATUS_BADGE[status] ?? "bg-muted text-muted-foreground",
-      )}
-    >
-      {status}
     </span>
   );
 }
@@ -176,3 +222,14 @@ export const fieldClass =
   "h-12 w-full rounded-none border border-border bg-card px-4 text-[15px] text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted-foreground";
 
 export const labelClass = "mb-2 block text-[14px] font-medium text-foreground";
+
+export function SelectField({ className, children, ...props }: ComponentProps<"select">) {
+  return (
+    <div className="relative">
+      <select {...props} className={cn(fieldClass, "appearance-none pr-10", className)}>
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}

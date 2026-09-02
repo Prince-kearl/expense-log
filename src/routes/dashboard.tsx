@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Area,
   AreaChart,
@@ -11,28 +10,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Calendar, FileText, PieChart as PieIcon, Plus, Wallet } from "lucide-react";
+import { Calendar, FileText, Plus, Wallet } from "lucide-react";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
+  KpiCarousel,
   PageHeader,
   PrimaryButton,
   SecondaryButton,
   StatCard,
   UserCell,
 } from "@/components/expense-ui";
-import { useCurrentUser, useExpenses, useMonthlyBudget } from "@/lib/app-data";
-import { setMonthlyBudget } from "@/lib/expense-api.functions";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useCurrentUser, useExpenses } from "@/lib/app-data";
 import {
   CATEGORY_COLORS,
   formatDate,
@@ -40,6 +31,7 @@ import {
   formatMoneyShort,
   greeting,
 } from "@/lib/expenses";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -80,13 +72,7 @@ function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
-  const budget = useMonthlyBudget(year, month + 1);
-  const saveBudget = useServerFn(setMonthlyBudget);
-  const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetAmount, setBudgetAmount] = useState("");
-  const [savedBudget, setSavedBudget] = useState<number | null>(null);
-  const [budgetError, setBudgetError] = useState("");
-  const [isSavingBudget, setIsSavingBudget] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<"monthly" | "yearly">("yearly");
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const thisMonth = expenses
@@ -102,33 +88,6 @@ function DashboardPage() {
     })
     .reduce((s, e) => s + e.amount, 0);
   const monthDelta = prevMonth ? ((thisMonth - prevMonth) / prevMonth) * 100 : 0;
-  const activeBudget = savedBudget ?? budget;
-  const remaining = activeBudget === null ? null : Math.max(activeBudget - thisMonth, 0);
-  const progress = activeBudget ? Math.min((thisMonth / activeBudget) * 100, 100) : 0;
-
-  async function saveCurrentMonthBudget() {
-    const amount = Number(budgetAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setBudgetError("Enter a budget amount greater than zero.");
-      return;
-    }
-    setIsSavingBudget(true);
-    setBudgetError("");
-    try {
-      setSavedBudget(await saveBudget({ data: { amount, year, month: month + 1 } }));
-      setBudgetOpen(false);
-    } catch (error) {
-      setBudgetError(error instanceof Error ? error.message : "Unable to save the budget.");
-    } finally {
-      setIsSavingBudget(false);
-    }
-  }
-
-  function openBudgetEditor() {
-    setBudgetAmount(activeBudget?.toString() ?? "");
-    setBudgetError("");
-    setBudgetOpen(true);
-  }
 
   const monthly = MONTHS.map((label, i) => ({
     label,
@@ -140,6 +99,23 @@ function DashboardPage() {
       .reduce((s, e) => s + e.amount, 0),
   }));
   const yearTotal = monthly.reduce((s, m) => s + m.value, 0);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daily = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    return {
+      label: String(day),
+      value: expenses
+        .filter((e) => {
+          const d = new Date(`${e.expense_date}T00:00:00`);
+          return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+        })
+        .reduce((s, e) => s + e.amount, 0),
+    };
+  });
+
+  const chartData = chartPeriod === "yearly" ? monthly : daily;
+  const chartInterval = chartPeriod === "yearly" ? 0 : Math.max(0, Math.ceil(chartData.length / 6) - 1);
 
   const byCategory = Object.entries(
     expenses.reduce<Record<string, number>>((acc, e) => {
@@ -161,20 +137,15 @@ function DashboardPage() {
         icon={<Calendar className="h-4 w-4" />}
         subtitle={`${now.toLocaleDateString("en-US", { month: "long" })} ${year}`}
         actions={
-          <>
           <Link to="/expenses/new">
             <PrimaryButton>
               <Plus className="h-4 w-4" /> Add Expense
             </PrimaryButton>
           </Link>
-          <SecondaryButton onClick={openBudgetEditor}>
-            {activeBudget === null ? "Set budget" : "Edit budget"}
-          </SecondaryButton>
-          </>
         }
       />
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <KpiCarousel gridClassName="sm:grid-cols-3">
         <StatCard
           icon={<Wallet className="h-6 w-6 text-primary" />}
           iconClass="bg-primary-soft"
@@ -199,35 +170,50 @@ function DashboardPage() {
           label="Transactions"
           value={String(expenses.length)}
         />
-        <StatCard
-          icon={<PieIcon className="h-6 w-6 text-warning" />}
-          iconClass="bg-warning-soft"
-          accentClass="border-t-warning"
-          label="Budget Remaining"
-          value={remaining === null ? "Not set" : formatMoneyShort(remaining)}
-          {...(activeBudget ? { delta: `${progress.toFixed(1)}%` } : {})}
-          deltaDirection="down"
-          deltaNote={activeBudget ? `of ${formatMoneyShort(activeBudget)}` : "Configure a monthly budget"}
-        />
-      </div>
+      </KpiCarousel>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-start justify-between">
+        <Card className="min-w-0 p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[17px] font-semibold text-foreground">Spending Overview</h2>
               <p className="mt-1 text-[13px] text-muted-foreground">
-                Total spending this year:{" "}
-                <span className="font-semibold text-foreground">{formatMoneyShort(yearTotal)}</span>
+                Total spending {chartPeriod === "yearly" ? "this year" : "this month"}:{" "}
+                <span className="font-semibold text-foreground">
+                  {formatMoneyShort(chartPeriod === "yearly" ? yearTotal : thisMonth)}
+                </span>
               </p>
             </div>
-            <span className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-[13px] text-foreground">
-              This Year
-            </span>
+            <div className="inline-flex shrink-0 items-center rounded-lg border border-border p-0.5 text-[13px]">
+              <button
+                type="button"
+                onClick={() => setChartPeriod("monthly")}
+                className={cn(
+                  "rounded-[7px] px-3 py-1.5 font-medium transition-colors",
+                  chartPeriod === "monthly"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartPeriod("yearly")}
+                className={cn(
+                  "rounded-[7px] px-3 py-1.5 font-medium transition-colors",
+                  chartPeriod === "yearly"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Yearly
+              </button>
+            </div>
           </div>
           <div className="mt-6 h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.18} />
@@ -238,6 +224,7 @@ function DashboardPage() {
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
+                  interval={chartInterval}
                   tick={{ fontSize: 13, fill: "var(--muted-foreground)" }}
                   dy={8}
                 />
@@ -245,8 +232,11 @@ function DashboardPage() {
                   tickLine={false}
                   axisLine={false}
                   width={48}
+                  allowDecimals={false}
                   tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                  tickFormatter={(v: number) => (v ? `${v / 1000}K` : "0")}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K` : v.toLocaleString()
+                  }
                 />
                 <Tooltip
                   cursor={{ stroke: "var(--primary)", strokeWidth: 1 }}
@@ -256,6 +246,11 @@ function DashboardPage() {
                     fontSize: 13,
                     boxShadow: "var(--shadow-elevated)",
                   }}
+                  labelFormatter={(label: string) =>
+                    chartPeriod === "yearly"
+                      ? label
+                      : `${now.toLocaleDateString("en-US", { month: "short" })} ${label}`
+                  }
                   formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
                 />
                 <Area
@@ -264,7 +259,11 @@ function DashboardPage() {
                   stroke="var(--primary)"
                   strokeWidth={2}
                   fill="url(#spendFill)"
-                  dot={{ r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }}
+                  dot={
+                    chartData.length > 15
+                      ? false
+                      : { r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }
+                  }
                   activeDot={{ r: 5, fill: "var(--primary)" }}
                 />
               </AreaChart>
@@ -329,14 +328,48 @@ function DashboardPage() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-4 sm:p-6">
+        <Card className="min-w-0 p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-[17px] font-semibold text-foreground">Recent Expenses</h2>
             <Link to="/expenses" className="text-[14px] font-medium text-primary hover:underline">
               View all expenses
             </Link>
           </div>
-          <div className="mt-4 overflow-x-auto">
+          {recent.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-[15px] font-medium text-foreground">No expenses recorded yet.</p>
+              <Link
+                to="/expenses/new"
+                className="mt-2 inline-block text-[14px] font-medium text-primary hover:underline"
+              >
+                Add your first expense
+              </Link>
+            </div>
+          ) : null}
+
+          <div className="mt-2 divide-y divide-border/70 sm:hidden">
+            {recent.map((e) => (
+              <div key={e.expense_id} className="flex items-center gap-3 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                    <CategoryPill category={e.category} />
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[15px] font-semibold whitespace-nowrap text-foreground">
+                    {formatMoney(e.amount, e.currency)}
+                  </p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">
+                    {(e.created_by_name.split(" ")[0] ?? e.created_by_name)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[620px] text-left">
               <thead>
                 <tr className="border-b border-border text-[13px] text-muted-foreground">
@@ -368,90 +401,36 @@ function DashboardPage() {
               </tbody>
             </table>
           </div>
-          <div className="mt-4 text-center">
-            <Link to="/expenses" className="text-[14px] font-medium text-primary hover:underline">
-              View all expenses
-            </Link>
-          </div>
+          {recent.length > 0 ? (
+            <div className="mt-4 text-center">
+              <Link to="/expenses" className="text-[14px] font-medium text-primary hover:underline">
+                View all expenses
+              </Link>
+            </div>
+          ) : null}
         </Card>
 
-        <div className="space-y-5">
-          <Card className="p-4 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[17px] font-semibold text-foreground">Budget Progress</h2>
-              <div className="flex items-center gap-3">
-                <span className="text-[13px] text-muted-foreground">{formatMoneyShort(thisMonth)} spent</span>
-                <button type="button" onClick={openBudgetEditor} className="text-[13px] font-medium text-primary hover:underline">
-                  {activeBudget === null ? "Set budget" : "Edit budget"}
-                </button>
-              </div>
-            </div>
-            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted-foreground">
-              <span>{activeBudget ? `${progress.toFixed(1)}% of ${formatMoneyShort(activeBudget)}` : "No budget configured"}</span>
-              <span>{remaining === null ? "" : `${formatMoneyShort(remaining)} remaining`}</span>
-            </div>
-            <div className="mt-4 rounded-xl bg-success-soft px-4 py-3 text-[14px] text-success">
-              {activeBudget === null
-                ? "Set a current-month budget in Google Sheets to track progress."
-                : progress < 100
-                ? "You're on track to meet your budget this month."
-                : "You have exceeded this month's budget."}
-            </div>
-          </Card>
-
-          <Card className="flex min-h-[86px] flex-wrap items-center gap-3 border-primary/10 bg-primary-soft/20 p-3.5 sm:flex-nowrap">
+        <Card className="flex flex-col gap-3 border-primary/10 bg-primary-soft/20 p-3.5 sm:min-h-[86px] sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft">
               <FileText className="h-6 w-6 text-primary" />
             </span>
             <div className="min-w-0 flex-1">
               <h3 className="text-[13px] font-semibold text-foreground">Monthly Expense Report</h3>
-              <p className="mt-1 max-w-[210px] text-[12px] leading-4 text-muted-foreground">
+              <p className="mt-1 text-[12px] leading-4 text-muted-foreground sm:max-w-[210px]">
                 View a detailed breakdown of your expenses for{" "}
                 {now.toLocaleDateString("en-US", { month: "long" })} {year}.
               </p>
             </div>
-            <Link
-              to="/reports"
-              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-[12px] font-semibold text-primary hover:bg-muted max-sm:ml-auto"
-            >
-              View Report <span aria-hidden>›</span>
-            </Link>
-          </Card>
-        </div>
+          </div>
+          <Link
+            to="/reports"
+            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-card px-3 text-[12px] font-semibold text-primary hover:bg-muted sm:w-auto sm:justify-start"
+          >
+            View Report <span aria-hidden>›</span>
+          </Link>
+        </Card>
       </div>
-      <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>{activeBudget === null ? "Set monthly budget" : "Update monthly budget"}</DialogTitle>
-            <DialogDescription>
-              This organization-wide GHS budget applies to {now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
-            </DialogDescription>
-          </DialogHeader>
-          <label className="block text-[14px] font-medium text-foreground" htmlFor="monthly-budget">
-            Budget amount (GHS)
-          </label>
-          <input
-            id="monthly-budget"
-            autoFocus
-            min="0.01"
-            step="0.01"
-            type="number"
-            value={budgetAmount}
-            onChange={(event) => setBudgetAmount(event.target.value)}
-            className="h-11 w-full rounded-none border border-border bg-card px-3 text-[15px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-          />
-          {budgetError ? <p className="text-[14px] text-destructive">{budgetError}</p> : null}
-          <DialogFooter>
-            <SecondaryButton type="button" onClick={() => setBudgetOpen(false)}>Cancel</SecondaryButton>
-            <PrimaryButton type="button" disabled={isSavingBudget} onClick={saveCurrentMonthBudget}>
-              {isSavingBudget ? "Saving..." : "Save budget"}
-            </PrimaryButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }
