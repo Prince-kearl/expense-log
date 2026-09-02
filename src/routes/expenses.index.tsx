@@ -84,8 +84,8 @@ function ExpensesPage() {
         }
       />
 
-      <Card className="mb-5 flex flex-wrap items-end gap-4 p-5">
-        <div className="relative min-w-[260px] flex-1">
+      <Card className="mb-5 flex flex-wrap items-end gap-4 p-4 sm:p-5">
+        <div className="relative min-w-0 flex-1 basis-full sm:min-w-[260px]">
           <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
@@ -97,7 +97,7 @@ function ExpensesPage() {
             className={cn(fieldClass, "pl-11")}
           />
         </div>
-        <div className="w-[220px]">
+        <div className="w-full sm:w-[220px]">
           <label className="mb-2 block text-[13px] text-muted-foreground">Category</label>
           <select
             value={category}
@@ -113,7 +113,7 @@ function ExpensesPage() {
             ))}
           </select>
         </div>
-        <div className="w-[220px]">
+        <div className="w-full sm:w-[220px]">
           <label className="mb-2 block text-[13px] text-muted-foreground">Month</label>
           <select
             value={month}
@@ -135,6 +135,7 @@ function ExpensesPage() {
           </select>
         </div>
         <SecondaryButton
+          className="w-full justify-center sm:w-auto"
           onClick={() => {
             setQuery("");
             setCategory("all");

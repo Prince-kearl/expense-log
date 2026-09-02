@@ -212,7 +212,7 @@ function DashboardPage() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-[17px] font-semibold text-foreground">Spending Overview</h2>
@@ -274,7 +274,7 @@ function DashboardPage() {
 
         <Card className="p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Spending by Category</h2>
-          <div className="mt-4 flex items-center gap-6">
+          <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
             <div className="h-[170px] w-[170px] shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -305,7 +305,7 @@ function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="min-w-0 flex-1 space-y-3">
+            <div className="w-full min-w-0 flex-1 space-y-3">
               {byCategory.map((c) => (
                 <div key={c.name} className="flex items-center gap-3 text-[14px]">
                   <span
@@ -329,7 +329,7 @@ function DashboardPage() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-[17px] font-semibold text-foreground">Recent Expenses</h2>
             <Link to="/expenses" className="text-[14px] font-medium text-primary hover:underline">
@@ -376,8 +376,8 @@ function DashboardPage() {
         </Card>
 
         <div className="space-y-5">
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
+          <Card className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[17px] font-semibold text-foreground">Budget Progress</h2>
               <div className="flex items-center gap-3">
                 <span className="text-[13px] text-muted-foreground">{formatMoneyShort(thisMonth)} spent</span>
@@ -389,7 +389,7 @@ function DashboardPage() {
             <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
             </div>
-            <div className="mt-3 flex items-center justify-between text-[13px] text-muted-foreground">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted-foreground">
               <span>{activeBudget ? `${progress.toFixed(1)}% of ${formatMoneyShort(activeBudget)}` : "No budget configured"}</span>
               <span>{remaining === null ? "" : `${formatMoneyShort(remaining)} remaining`}</span>
             </div>
@@ -402,7 +402,7 @@ function DashboardPage() {
             </div>
           </Card>
 
-          <Card className="flex min-h-[86px] items-center gap-3 border-primary/10 bg-primary-soft/20 p-3.5">
+          <Card className="flex min-h-[86px] flex-wrap items-center gap-3 border-primary/10 bg-primary-soft/20 p-3.5 sm:flex-nowrap">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft">
               <FileText className="h-6 w-6 text-primary" />
             </span>
@@ -415,7 +415,7 @@ function DashboardPage() {
             </div>
             <Link
               to="/reports"
-              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-[12px] font-semibold text-primary hover:bg-muted"
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-[12px] font-semibold text-primary hover:bg-muted max-sm:ml-auto"
             >
               View Report <span aria-hidden>›</span>
             </Link>

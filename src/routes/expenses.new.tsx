@@ -283,7 +283,7 @@ function NewExpensePage() {
       />
 
       <form onSubmit={submit} className="max-w-none">
-        <Card className="p-6 lg:p-8">
+        <Card className="p-4 sm:p-6 lg:p-8">
           <div className="grid gap-5 lg:grid-cols-3">
             <div>
               <label className={labelClass}>

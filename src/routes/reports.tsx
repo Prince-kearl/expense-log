@@ -118,7 +118,7 @@ function ReportsPage() {
             <select
               value={selectedMonth}
               onChange={(event) => setReportingMonth(event.target.value)}
-              className={`${fieldClass} h-11 w-[154px]`}
+              className={`${fieldClass} h-11 w-full sm:w-[154px]`}
             >
               {reportingMonths.length === 0 ? <option value={selectedMonth}>{selectedMonth}</option> : null}
               {reportingMonths.map((month) => (
@@ -127,11 +127,11 @@ function ReportsPage() {
                 </option>
               ))}
             </select>
-            <select value={category} onChange={(event) => setCategory(event.target.value)} className={`${fieldClass} h-11 w-[154px]`}>
+            <select value={category} onChange={(event) => setCategory(event.target.value)} className={`${fieldClass} h-11 w-full sm:w-[154px]`}>
               <option value="all">All Categories</option>
               {categories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}
             </select>
-            <SecondaryButton onClick={exportReport}>
+            <SecondaryButton onClick={exportReport} className="w-full justify-center sm:w-auto">
               <Download className="h-4 w-4" /> Export
             </SecondaryButton>
           </>
@@ -145,7 +145,7 @@ function ReportsPage() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Monthly Spending Trend</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Monthly spend for {year}{category === "all" ? "" : ` in ${category}`}.
@@ -183,9 +183,9 @@ function ReportsPage() {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Category Breakdown</h2>
-          <div className="mt-4 flex items-center gap-6">
+          <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
             <div className="h-[170px] w-[170px] shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -216,7 +216,7 @@ function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="min-w-0 flex-1 space-y-3">
+            <div className="w-full min-w-0 flex-1 space-y-3">
               {byCategory.map((c) => (
                 <div key={c.name} className="flex items-center gap-3 text-[14px]">
                   <span
