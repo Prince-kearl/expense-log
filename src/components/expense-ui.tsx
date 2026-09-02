@@ -27,10 +27,10 @@ export function StatCard({
   accentClass?: string;
 }) {
   return (
-    <Card className={cn("min-h-[136px] border-t-2 p-4", accentClass)}>
+    <Card className={cn("min-h-[132px] border-t-2 p-3.5 sm:min-h-[136px] sm:p-4", accentClass)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[30px] leading-9 font-bold tracking-tight text-foreground">
+          <p className="text-[26px] leading-8 font-bold tracking-tight text-foreground sm:text-[30px] sm:leading-9">
           {value}
           </p>
           <p className="mt-2 text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase">
@@ -121,9 +121,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="text-[32px] leading-10 font-bold tracking-tight text-foreground">{title}</h1>
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-4 sm:mb-6">
+      <div className="min-w-0">
+        <h1 className="text-[28px] leading-9 font-bold tracking-tight text-foreground sm:text-[32px] sm:leading-10">{title}</h1>
         {subtitle ? (
           <p className="mt-1 flex items-center gap-2 text-[15px] text-muted-foreground">
             {icon}
@@ -131,7 +131,7 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">{actions}</div> : null}
     </div>
   );
 }

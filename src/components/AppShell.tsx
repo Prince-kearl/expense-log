@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <main className="px-6 pt-4 pb-12 lg:px-8 lg:pt-7">{children}</main>
+        <main className="px-4 pt-2 pb-8 sm:px-6 sm:pt-4 sm:pb-12 lg:px-8 lg:pt-7">{children}</main>
       </div>
     </div>
   );
