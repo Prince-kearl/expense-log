@@ -5,9 +5,7 @@ import {
   appendExpenseToSheet,
   createCategoryInSheet,
   getApplicationConfiguration,
-  getBudgetForMonth,
   getExpensesFromSheet,
-    upsertMonthlyBudget,
   uploadReceipt,
 } from "./google.server";
 import { readCookie, readSession } from "./session.server";
@@ -53,23 +51,6 @@ export const createExpenseCategory = createServerFn({ method: "POST" })
     return createCategoryInSheet(category, subcategory);
   });
 
-export const getMonthlyBudget = createServerFn({ method: "GET" })
-  .validator((data: { year: number; month: number }) => data)
-  .handler(async ({ data }) => {
-    await requireCurrentUser(getRequest());
-    return getBudgetForMonth(data.year, data.month);
-  });
-
-export const setMonthlyBudget = createServerFn({ method: "POST" })
-  .validator((data: { amount: number; year: number; month: number }) => data)
-  .handler(async ({ data }) => {
-    await requireCurrentUser(getRequest());
-    if (!Number.isFinite(data.amount) || data.amount <= 0 || !Number.isInteger(data.year) || data.month < 1 || data.month > 12) {
-      throw new Error("Enter a budget amount greater than zero.");
-    }
-    return upsertMonthlyBudget(data.year, data.month, data.amount);
-  });
-
 export const createExpense = createServerFn({ method: "POST" })
   .validator((data: FormData) => {
     if (!(data instanceof FormData)) throw new Error("Expected expense form data.");
@@ -108,7 +89,6 @@ export const createExpense = createServerFn({ method: "POST" })
       receipt_url: uploadedReceipts.map((receipt) => receipt.webViewLink ?? "").filter(Boolean).join(",") || null,
       receipt_filename: uploadedReceipts.map((receipt) => receipt.name).join(",") || null,
       receipt_mime_type: uploadedReceipts.map((receipt) => receipt.mimeType).join(",") || null,
-      status: "Pending",
       created_by_user_id: user.user_id,
       created_by_name: user.name,
       created_by_email: user.email,

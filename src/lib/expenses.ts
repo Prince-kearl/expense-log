@@ -15,7 +15,6 @@ export type Expense = {
   receipt_url: string | null;
   receipt_filename: string | null;
   receipt_mime_type: string | null;
-  status: "Approved" | "Pending" | "Paid";
   created_by_user_id: string;
   created_by_name: string;
   created_by_email: string;
@@ -48,11 +47,29 @@ export const CATEGORY_BADGE: Record<string, string> = {
   "Office Supplies": "bg-sky-soft text-sky",
 };
 
-export const STATUS_BADGE: Record<string, string> = {
-  Approved: "bg-success-soft text-success",
-  Paid: "bg-primary-soft text-primary",
-  Pending: "bg-warning-soft text-warning",
-};
+export const DEFAULT_CATEGORIES: { category: string; subcategories: string[] }[] = [
+  {
+    category: "Capex",
+    subcategories: [
+      "Product/Software Development",
+      "Tech Infrastructure",
+      "Office & Equipment",
+      "Other Capex",
+    ],
+  },
+  {
+    category: "Opex",
+    subcategories: [
+      "Rent & Office Supplies",
+      "Cloud Infrastructure",
+      "Regulatory & Legal",
+      "People Cost",
+      "Marketing & Customer Acquisition",
+      "General Operations",
+      "Misc & Contingency",
+    ],
+  },
+];
 
 export function formatMoney(amount: number, currency = "GHS") {
   return `${currency} ${amount.toLocaleString("en-US", {
