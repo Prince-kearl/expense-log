@@ -1,17 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  BarChart3,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Home,
-  LogOut,
-  Menu,
-  PlusCircle,
-  User,
-  X,
-} from "lucide-react";
+import { Bell, BarChart3, FileText, Home, LogOut, PlusCircle, User } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useCurrentUser } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
@@ -25,142 +13,222 @@ const NAV = [
   { label: "Reports", to: "/reports", icon: BarChart3 },
 ] as const;
 
-function SidebarContent({
-  collapsed = false,
-  onNavigate,
-  onToggle,
-}: {
-  collapsed?: boolean;
-  onNavigate?: () => void;
-  onToggle?: () => void;
-}) {
+type MenuKey = "account" | "notifications";
+
+function useActiveNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  return (to: (typeof NAV)[number]["to"]) =>
+    to === "/expenses" ? pathname === "/expenses" : pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useCurrentUser> }) {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+          {currentUser ? initials(currentUser.name) : "..."}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-foreground">
+            {currentUser?.name ?? "Loading account"}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{currentUser?.email ?? ""}</p>
+        </div>
+      </div>
+      <a
+        href="/api/auth/signout"
+        className="mt-4 flex h-9 items-center gap-3 text-[15px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <LogOut className="h-5 w-5" />
+        Sign out
+      </a>
+    </>
+  );
+}
+
+function NotificationsPanel() {
+  return (
+    <div className="py-2 text-center">
+      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <Bell className="h-4 w-4 text-muted-foreground" />
+      </span>
+      <p className="mt-3 text-[14px] font-medium text-foreground">You're all caught up</p>
+      <p className="mt-1 text-[13px] text-muted-foreground">No new notifications yet.</p>
+    </div>
+  );
+}
+
+function DesktopNav() {
+  const isActive = useActiveNav();
   const currentUser = useCurrentUser();
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+
+  function toggle(menu: MenuKey) {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  }
 
   return (
-    <div
-      className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
-        collapsed ? "w-[76px]" : "w-[232px]",
-      )}
-    >
-      <div className={cn("flex items-center pt-6 pb-6", collapsed ? "flex-col px-3" : "gap-3 px-4")}>
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-          <BarChart3 className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
+    <header className="sticky top-4 z-30 hidden justify-center px-4 lg:flex">
+      {openMenu ? (
+        <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} aria-hidden />
+      ) : null}
+      <div className="relative z-50 flex items-center gap-1 rounded-full bg-primary p-1.5 shadow-card">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground">
+          <BarChart3 className="h-4 w-4 text-primary" strokeWidth={2.5} />
         </span>
-        {!collapsed ? <span className="text-[21px] font-bold tracking-tight text-foreground">CoinTrail</span> : null}
-        {onToggle ? (
+
+        <nav className="flex items-center gap-1 px-3" aria-label="Primary">
+          {NAV.map((item) => {
+            const active = isActive(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-full px-3.5 py-2 text-[14px] font-medium whitespace-nowrap transition-colors",
+                  active
+                    ? "border border-primary-foreground/50 bg-primary-foreground/15 text-primary-foreground backdrop-blur-sm"
+                    : "border border-transparent text-primary-foreground/70 hover:text-primary-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="relative">
           <button
             type="button"
-            onClick={onToggle}
-            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-              collapsed ? "mt-3" : "ml-auto",
-            )}
+            onClick={() => toggle("notifications")}
+            aria-label="Notifications"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-primary-foreground/70 transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground"
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            <Bell className="h-4 w-4" />
           </button>
-        ) : null}
-      </div>
+          {openMenu === "notifications" ? (
+            <div className="absolute top-12 right-0 w-72 rounded-2xl border border-border bg-card p-4 text-left shadow-card">
+              <NotificationsPanel />
+            </div>
+          ) : null}
+        </div>
 
-      <nav className={cn("flex flex-col gap-2", collapsed ? "px-3" : "px-2")}>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => toggle("account")}
+            aria-label="Account menu"
+            className="flex items-center gap-2 rounded-full bg-primary-foreground py-1.5 pr-1.5 pl-3 text-[13px] font-semibold text-primary"
+          >
+            <span className="max-w-[130px] truncate">
+              {currentUser?.name.split(" ")[0] ?? "Account"}
+            </span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary">
+              {currentUser ? initials(currentUser.name) : <User className="h-3.5 w-3.5" />}
+            </span>
+          </button>
+          {openMenu === "account" ? (
+            <div className="absolute top-12 right-0 w-64 rounded-2xl border border-border bg-card p-4 text-left shadow-card">
+              <AccountMenuPanel currentUser={currentUser} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function MobileBottomNav() {
+  const isActive = useActiveNav();
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+      aria-label="Primary"
+    >
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-0.5 rounded-full bg-primary p-1.5 shadow-card">
         {NAV.map((item) => {
-          const active =
-            item.to === "/expenses"
-              ? pathname === "/expenses"
-              : pathname === item.to || pathname.startsWith(`${item.to}/`);
+          const active = isActive(item.to);
           const Icon = item.icon;
           return (
             <Link
               key={item.to}
               to={item.to}
-              onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-11 items-center rounded-full text-[15px] font-medium transition-colors",
-                collapsed ? "justify-center px-0" : "gap-3 px-4",
+                "flex min-w-0 items-center justify-center rounded-full border transition-colors",
                 active
-                  ? "border border-primary/30 bg-sidebar-active text-sidebar-active-foreground"
-                  : "border border-transparent text-sidebar-foreground hover:bg-muted",
+                  ? "flex-1 gap-1.5 border-primary-foreground/50 bg-primary-foreground/15 px-3 py-2.5 text-primary-foreground backdrop-blur-sm"
+                  : "h-10 w-10 shrink-0 border-transparent text-primary-foreground/50 hover:text-primary-foreground/80",
               )}
             >
-              <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
-              {!collapsed ? item.label : null}
+              <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
+              {active ? <span className="truncate text-[13px] font-semibold">{item.label}</span> : null}
             </Link>
           );
         })}
-      </nav>
+      </div>
+    </nav>
+  );
+}
 
-      <div className={cn("mt-auto border-t border-sidebar-border py-5", collapsed ? "px-3" : "px-5")}>
-        <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-            {currentUser ? initials(currentUser.name) : "..."}
-          </span>
-          {!collapsed ? <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-foreground">
-              {currentUser?.name ?? "Loading account"}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">{currentUser?.email ?? ""}</p>
-          </div> : null}
-          {!collapsed ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
-        </div>
-        <a
-          href="/api/auth/signout"
-          title={collapsed ? "Sign out" : undefined}
-          className={cn(
-            "mt-4 flex h-9 items-center text-[15px] text-muted-foreground transition-colors hover:text-foreground",
-            collapsed ? "justify-center" : "gap-3 px-1",
-          )}
-        >
-          <LogOut className="h-5 w-5" />
-          {!collapsed ? "Sign out" : null}
-        </a>
+function MobileMenuOverlay({
+  open,
+  onClose,
+  currentUser,
+}: {
+  open: MenuKey | null;
+  onClose: () => void;
+  currentUser: ReturnType<typeof useCurrentUser>;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div className="absolute inset-0 bg-foreground/30" onClick={onClose} aria-hidden />
+      <div className="absolute top-16 right-4 w-72 rounded-2xl border border-border bg-card p-4 shadow-card">
+        {open === "account" ? <AccountMenuPanel currentUser={currentUser} /> : <NotificationsPanel />}
       </div>
     </div>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [mobileMenu, setMobileMenu] = useState<MenuKey | null>(null);
+  const currentUser = useCurrentUser();
+
+  function toggleMobile(menu: MenuKey) {
+    setMobileMenu((current) => (current === menu ? null : menu));
+  }
 
   return (
-    <div className="flex min-h-screen bg-page">
-      <aside className="sticky top-0 hidden h-screen shrink-0 lg:block">
-        <SidebarContent collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
-      </aside>
+    <div className="min-h-screen bg-page">
+      <DesktopNav />
 
-      {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-foreground/30"
-            onClick={() => setOpen(false)}
-            aria-hidden
-          />
-          <div className="absolute inset-y-0 left-0 h-full">
-            <SidebarContent onNavigate={() => setOpen(false)} />
-          </div>
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Close navigation"
-            className="absolute top-5 right-5 rounded-full bg-card p-2 shadow-card"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      ) : null}
+      <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
 
-      <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-end gap-2 p-4 lg:hidden">
         <button
-          onClick={() => setOpen(true)}
-          aria-label="Open navigation"
-          className="m-4 rounded-full border border-border bg-card p-2 shadow-card lg:hidden"
+          onClick={() => toggleMobile("notifications")}
+          aria-label="Notifications"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-card"
         >
-          <Menu className="h-5 w-5" />
+          <Bell className="h-4 w-4" />
         </button>
-        <main className="px-4 pt-2 pb-8 sm:px-6 sm:pt-4 sm:pb-12 lg:px-8 lg:pt-7">{children}</main>
+        <button
+          onClick={() => toggleMobile("account")}
+          aria-label="Account menu"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground shadow-card"
+        >
+          {currentUser ? initials(currentUser.name) : <User className="h-4 w-4" />}
+        </button>
       </div>
+
+      <main className="px-4 pt-0 pb-28 sm:px-6 sm:pb-28 lg:px-8 lg:pt-8 lg:pb-10">{children}</main>
+
+      <MobileBottomNav />
     </div>
   );
 }
