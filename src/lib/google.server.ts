@@ -111,7 +111,6 @@ function expenseFromRow(row: string[]): Expense {
     receipt_mime_type: item["receipt_mime_type"] || null,
     updated_by_user_id: item["updated_by_user_id"] || null,
     is_deleted: item["is_deleted"]?.toLowerCase() === "true",
-    status: "Pending",
   } as Expense;
 }
 
@@ -158,54 +157,6 @@ export async function createCategoryInSheet(categoryName: string, subcategoryNam
     },
   );
   return { category: categoryName, subcategory: subcategoryName };
-}
-
-export async function getBudgetForMonth(year: number, month: number) {
-  const rows = await sheetRows("Budgets");
-  const header = rows[0]?.map((value) => value.trim().toLowerCase().replace(/\s+/g, "_")) ?? [];
-  const monthColumn = header.indexOf("month") >= 0 ? header.indexOf("month") : 1;
-  const yearColumn = header.indexOf("year") >= 0 ? header.indexOf("year") : 2;
-  const amountColumn = header.indexOf("budget_amount") >= 0 ? header.indexOf("budget_amount") : 5;
-  const budget = rows.slice(1)
-    .filter((row) => Number(row[monthColumn]) === month && Number(row[yearColumn]) === year)
-    .reduce((total, row) => total + parseSheetAmount(row[amountColumn]), 0);
-  return budget || null;
-}
-
-function parseSheetAmount(value: string | undefined) {
-  const normalized = (value ?? "").replace(/[^0-9.-]/g, "");
-  const amount = Number(normalized);
-  return Number.isFinite(amount) ? amount : 0;
-}
-
-export async function upsertMonthlyBudget(year: number, month: number, amount: number) {
-  const { spreadsheetId } = getGoogleConfig();
-  const rows = await sheetRows("Budgets");
-  const existingIndex = rows.slice(1).findIndex(
-    (row) => Number(row[1]) === month && Number(row[2]) === year && !row[3] && !row[4],
-  );
-  const now = new Date().toISOString();
-  const values = [[
-    existingIndex >= 0 ? rows[existingIndex + 1]?.[0] || `BUD-${year}${String(month).padStart(2, "0")}` : `BUD-${year}${String(month).padStart(2, "0")}`,
-    String(month),
-    String(year),
-    "",
-    "",
-    String(amount),
-    "GHS",
-    existingIndex >= 0 ? rows[existingIndex + 1]?.[7] ?? now : now,
-    now,
-  ]];
-  const range = existingIndex >= 0 ? `Budgets!A${existingIndex + 2}:I${existingIndex + 2}` : "Budgets!A:I";
-  const endpoint = existingIndex >= 0
-    ? `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`
-    : `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
-  await googleFetch(endpoint, {
-    method: existingIndex >= 0 ? "PUT" : "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ values }),
-  });
-  return amount;
 }
 
 export async function appendExpenseToSheet(expense: Expense) {

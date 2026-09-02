@@ -1,7 +1,7 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { getCurrentUser, getExpenseConfiguration, getExpenses, getMyExpenses, getMonthlyBudget } from "./expense-api.functions";
-import type { AppUser, Expense } from "./expenses";
+import { getCurrentUser, getExpenseConfiguration, getExpenses, getMyExpenses } from "./expense-api.functions";
+import { DEFAULT_CATEGORIES, type AppUser, type Expense } from "./expenses";
 
 export type ExpenseConfiguration = {
   categories: { category: string; subcategories: string[] }[];
@@ -11,7 +11,7 @@ export type ExpenseConfiguration = {
 };
 
 const EMPTY_CONFIGURATION: ExpenseConfiguration = {
-  categories: [],
+  categories: DEFAULT_CATEGORIES,
   paymentMethods: [],
   accounts: [],
   currencies: [],
@@ -45,20 +45,19 @@ export function useCurrentUser() {
   return user;
 }
 
+function withDefaultCategories(configuration: ExpenseConfiguration): ExpenseConfiguration {
+  const existing = new Set(configuration.categories.map((c) => c.category));
+  const extras = DEFAULT_CATEGORIES.filter((c) => !existing.has(c.category));
+  return { ...configuration, categories: [...configuration.categories, ...extras] };
+}
+
 export function useExpenseConfiguration() {
   const fetchConfiguration = useServerFn(getExpenseConfiguration);
   const [configuration, setConfiguration] = useState<ExpenseConfiguration>(EMPTY_CONFIGURATION);
   useEffect(() => {
-    fetchConfiguration({ data: undefined }).then(setConfiguration).catch(() => setConfiguration(EMPTY_CONFIGURATION));
+    fetchConfiguration({ data: undefined })
+      .then((result) => setConfiguration(withDefaultCategories(result)))
+      .catch(() => setConfiguration(EMPTY_CONFIGURATION));
   }, [fetchConfiguration]);
   return configuration;
-}
-
-export function useMonthlyBudget(year: number, month: number) {
-  const fetchBudget = useServerFn(getMonthlyBudget);
-  const [budget, setBudget] = useState<number | null>(null);
-  useEffect(() => {
-    fetchBudget({ data: { year, month } }).then(setBudget).catch(() => setBudget(null));
-  }, [fetchBudget, month, year]);
-  return budget;
 }
