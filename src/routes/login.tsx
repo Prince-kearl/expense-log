@@ -4,12 +4,12 @@ import { BarChart3 } from "lucide-react";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in — ExpenseTracker" },
+      { title: "Sign in — CoinTrail" },
       {
         name: "description",
         content: "Sign in with Google to record and track your organization's expenses.",
       },
-      { property: "og:title", content: "Sign in — ExpenseTracker" },
+      { property: "og:title", content: "Sign in — CoinTrail" },
       {
         property: "og:description",
         content: "Sign in with Google to record and track your organization's expenses.",
@@ -21,19 +21,23 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-page px-6">
-      <div className="w-full max-w-[420px] card-surface p-10 text-center shadow-elevated">
-        <div className="flex items-center justify-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-page px-6">
+      <div
+        className="pointer-events-none absolute top-[-120px] left-1/2 h-[360px] w-[560px] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="relative w-full max-w-[420px] card-surface p-10 text-center shadow-elevated">
+        <div className="flex flex-col items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <BarChart3 className="h-6 w-6 text-primary-foreground" strokeWidth={2.5} />
           </span>
-          <span className="text-[22px] font-bold tracking-tight text-foreground">
-            Expense Tracker
-          </span>
+          <span className="text-[22px] font-bold tracking-tight text-foreground">CoinTrail</span>
         </div>
 
-        <p className="mt-6 text-[15px] text-muted-foreground">
-          Track your organization&apos;s expenses in one place.
+        <h1 className="mt-6 text-[19px] font-semibold text-foreground">Welcome back</h1>
+        <p className="mt-1.5 text-[15px] text-muted-foreground">
+          Sign in to record and track your organization&apos;s expenses.
         </p>
 
         <button
