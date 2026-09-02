@@ -12,7 +12,7 @@ import {
   StatusPill,
   fieldClass,
 } from "@/components/expense-ui";
-import { CATEGORIES, CURRENT_USER, useExpenses } from "@/lib/sample-store";
+import { useExpenseConfiguration, useMyExpenses } from "@/lib/app-data";
 import { formatDate, formatMoney, formatMoneyShort } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -37,15 +37,11 @@ export const Route = createFileRoute("/my-expenses")({
 });
 
 function MyExpensesPage() {
-  const all = useExpenses();
+  const mine = useMyExpenses();
+  const configuration = useExpenseConfiguration();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
-
-  const mine = useMemo(
-    () => all.filter((e) => e.created_by_user_id === CURRENT_USER.user_id),
-    [all],
-  );
 
   const total = mine.reduce((s, e) => s + e.amount, 0);
   const latest = mine.map((e) => e.expense_date).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
@@ -86,6 +82,7 @@ function MyExpensesPage() {
         <StatCard
           icon={<Wallet className="h-6 w-6 text-primary" />}
           iconClass="bg-primary-soft"
+          accentClass="border-t-primary"
           label="My Total"
           value={formatMoneyShort(total)}
           deltaNote="All time"
@@ -93,6 +90,7 @@ function MyExpensesPage() {
         <StatCard
           icon={<CalendarDays className="h-6 w-6 text-success" />}
           iconClass="bg-success-soft"
+          accentClass="border-t-success"
           label="This Month"
           value={formatMoneyShort(thisMonth)}
           deltaNote={new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
@@ -103,6 +101,7 @@ function MyExpensesPage() {
         <StatCard
           icon={<FileText className="h-6 w-6 text-violet" />}
           iconClass="bg-violet-soft"
+          accentClass="border-t-violet"
           label="My Transactions"
           value={String(mine.length)}
           deltaNote="Records submitted"
@@ -110,6 +109,7 @@ function MyExpensesPage() {
         <StatCard
           icon={<Receipt className="h-6 w-6 text-warning" />}
           iconClass="bg-warning-soft"
+          accentClass="border-t-warning"
           label="Pending"
           value={String(pending)}
           deltaNote="Awaiting approval"
@@ -134,7 +134,7 @@ function MyExpensesPage() {
             className={fieldClass}
           >
             <option value="all">All Categories</option>
-            {CATEGORIES.map((c) => (
+            {configuration.categories.map((c) => (
               <option key={c.category}>{c.category}</option>
             ))}
           </select>

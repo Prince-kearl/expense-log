@@ -1,5 +1,16 @@
 # Expense Log
 
+## Google integration setup
+
+Copy `.env.example` to `.env` and provide the values from your Google Cloud project. Keep `.env` outside source control.
+
+1. Create an OAuth 2.0 Web application client and register `${APP_URL}/api/auth/google` as its authorized redirect URI.
+2. Enable Google Sheets API and Google Drive API in that project.
+3. Create a service account, then share the `ExpenseTracker Database` spreadsheet and the private `ExpenseTracker Receipts` Drive folder with its service-account email.
+4. Create the `Users`, `Expenses`, `Categories`, and `Configuration` sheets with the header schemas specified below. `Configuration` uses `section`, `value`, and `active` columns.
+
+The browser only calls TanStack server functions. OAuth secrets, service-account credentials, Sheets IDs, and Drive folder IDs never enter the client bundle.
+
 Build a production-ready internal expense tracking web application based EXACTLY on the attached UI reference images.
 
 IMPORTANT DESIGN REQUIREMENT:

@@ -17,6 +17,9 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses.index'
 import { Route as ExpensesExpenseIdRouteImport } from './routes/expenses.$expenseId'
 import { Route as ExpensesNewRouteImport } from './routes/expenses.new'
+import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
+import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
+import { Route as ApiReceiptsFileIdRouteImport } from './routes/api/receipts/$fileId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +61,21 @@ const ExpensesNewRoute = ExpensesNewRouteImport.update({
   path: '/expenses/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
+  id: '/api/auth/google',
+  path: '/api/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSignoutRoute = ApiAuthSignoutRouteImport.update({
+  id: '/api/auth/signout',
+  path: '/api/auth/signout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReceiptsFileIdRoute = ApiReceiptsFileIdRouteImport.update({
+  id: '/api/receipts/$fileId',
+  path: '/api/receipts/$fileId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +86,9 @@ export interface FileRoutesByFullPath {
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses/': typeof ExpensesIndexRoute
+  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +99,9 @@ export interface FileRoutesByTo {
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses': typeof ExpensesIndexRoute
+  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +113,9 @@ export interface FileRoutesById {
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses/': typeof ExpensesIndexRoute
+  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +128,9 @@ export interface FileRouteTypes {
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses/'
+    | '/api/auth/google'
+    | '/api/auth/signout'
+    | '/api/receipts/$fileId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +141,9 @@ export interface FileRouteTypes {
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses'
+    | '/api/auth/google'
+    | '/api/auth/signout'
+    | '/api/receipts/$fileId'
   id:
     | '__root__'
     | '/'
@@ -121,6 +154,9 @@ export interface FileRouteTypes {
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses/'
+    | '/api/auth/google'
+    | '/api/auth/signout'
+    | '/api/receipts/$fileId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +168,9 @@ export interface RootRouteChildren {
   ExpensesExpenseIdRoute: typeof ExpensesExpenseIdRoute
   ExpensesNewRoute: typeof ExpensesNewRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
+  ApiAuthGoogleRoute: typeof ApiAuthGoogleRoute
+  ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
+  ApiReceiptsFileIdRoute: typeof ApiReceiptsFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +231,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpensesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/google': {
+      id: '/api/auth/google'
+      path: '/api/auth/google'
+      fullPath: '/api/auth/google'
+      preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/signout': {
+      id: '/api/auth/signout'
+      path: '/api/auth/signout'
+      fullPath: '/api/auth/signout'
+      preLoaderRoute: typeof ApiAuthSignoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/receipts/$fileId': {
+      id: '/api/receipts/$fileId'
+      path: '/api/receipts/$fileId'
+      fullPath: '/api/receipts/$fileId'
+      preLoaderRoute: typeof ApiReceiptsFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +264,9 @@ const rootRouteChildren: RootRouteChildren = {
   ExpensesExpenseIdRoute: ExpensesExpenseIdRoute,
   ExpensesNewRoute: ExpensesNewRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
+  ApiAuthGoogleRoute: ApiAuthGoogleRoute,
+  ApiAuthSignoutRoute: ApiAuthSignoutRoute,
+  ApiReceiptsFileIdRoute: ApiReceiptsFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

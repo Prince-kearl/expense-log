@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Area,
   AreaChart,
@@ -11,16 +12,27 @@ import {
   YAxis,
 } from "recharts";
 import { Calendar, FileText, PieChart as PieIcon, Plus, Wallet } from "lucide-react";
+import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
   PageHeader,
   PrimaryButton,
+  SecondaryButton,
   StatCard,
   UserCell,
 } from "@/components/expense-ui";
-import { CURRENT_USER, useExpenses } from "@/lib/sample-store";
+import { useCurrentUser, useExpenses, useMonthlyBudget } from "@/lib/app-data";
+import { setMonthlyBudget } from "@/lib/expense-api.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   CATEGORY_COLORS,
   formatDate,
@@ -62,13 +74,19 @@ const MONTHS = [
   "Dec",
 ];
 
-const BUDGET = 20000;
-
 function DashboardPage() {
   const expenses = useExpenses();
-  const now = new Date(expenses[0]?.expense_date ?? new Date().toISOString().slice(0, 10));
+  const currentUser = useCurrentUser();
+  const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
+  const budget = useMonthlyBudget(year, month + 1);
+  const saveBudget = useServerFn(setMonthlyBudget);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetAmount, setBudgetAmount] = useState("");
+  const [savedBudget, setSavedBudget] = useState<number | null>(null);
+  const [budgetError, setBudgetError] = useState("");
+  const [isSavingBudget, setIsSavingBudget] = useState(false);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const thisMonth = expenses
@@ -84,8 +102,33 @@ function DashboardPage() {
     })
     .reduce((s, e) => s + e.amount, 0);
   const monthDelta = prevMonth ? ((thisMonth - prevMonth) / prevMonth) * 100 : 0;
-  const remaining = Math.max(BUDGET - thisMonth, 0);
-  const progress = Math.min((thisMonth / BUDGET) * 100, 100);
+  const activeBudget = savedBudget ?? budget;
+  const remaining = activeBudget === null ? null : Math.max(activeBudget - thisMonth, 0);
+  const progress = activeBudget ? Math.min((thisMonth / activeBudget) * 100, 100) : 0;
+
+  async function saveCurrentMonthBudget() {
+    const amount = Number(budgetAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setBudgetError("Enter a budget amount greater than zero.");
+      return;
+    }
+    setIsSavingBudget(true);
+    setBudgetError("");
+    try {
+      setSavedBudget(await saveBudget({ data: { amount, year, month: month + 1 } }));
+      setBudgetOpen(false);
+    } catch (error) {
+      setBudgetError(error instanceof Error ? error.message : "Unable to save the budget.");
+    } finally {
+      setIsSavingBudget(false);
+    }
+  }
+
+  function openBudgetEditor() {
+    setBudgetAmount(activeBudget?.toString() ?? "");
+    setBudgetError("");
+    setBudgetOpen(true);
+  }
 
   const monthly = MONTHS.map((label, i) => ({
     label,
@@ -114,15 +157,20 @@ function DashboardPage() {
   return (
     <AppShell>
       <PageHeader
-        title={`${greeting()}, ${CURRENT_USER.name.split(" ")[0]} 👋`}
+        title={`${greeting()}${currentUser ? `, ${currentUser.name.split(" ")[0]}` : ""}`}
         icon={<Calendar className="h-4 w-4" />}
         subtitle={`${now.toLocaleDateString("en-US", { month: "long" })} ${year}`}
         actions={
+          <>
           <Link to="/expenses/new">
             <PrimaryButton>
               <Plus className="h-4 w-4" /> Add Expense
             </PrimaryButton>
           </Link>
+          <SecondaryButton onClick={openBudgetEditor}>
+            {activeBudget === null ? "Set budget" : "Edit budget"}
+          </SecondaryButton>
+          </>
         }
       />
 
@@ -130,14 +178,14 @@ function DashboardPage() {
         <StatCard
           icon={<Wallet className="h-6 w-6 text-primary" />}
           iconClass="bg-primary-soft"
+          accentClass="border-t-primary"
           label="Total Expenses"
           value={formatMoneyShort(total)}
-          delta="18.6%"
-          deltaNote="vs Jul 2026"
         />
         <StatCard
           icon={<Calendar className="h-6 w-6 text-success" />}
           iconClass="bg-success-soft"
+          accentClass="border-t-success"
           label="This Month"
           value={formatMoneyShort(thisMonth)}
           delta={`${Math.abs(monthDelta).toFixed(1)}%`}
@@ -147,19 +195,19 @@ function DashboardPage() {
         <StatCard
           icon={<FileText className="h-6 w-6 text-violet" />}
           iconClass="bg-violet-soft"
+          accentClass="border-t-violet"
           label="Transactions"
           value={String(expenses.length)}
-          delta="8.1%"
-          deltaNote="vs Jul 2026"
         />
         <StatCard
           icon={<PieIcon className="h-6 w-6 text-warning" />}
           iconClass="bg-warning-soft"
+          accentClass="border-t-warning"
           label="Budget Remaining"
-          value={formatMoneyShort(remaining)}
-          delta={`${progress.toFixed(1)}%`}
+          value={remaining === null ? "Not set" : formatMoneyShort(remaining)}
+          {...(activeBudget ? { delta: `${progress.toFixed(1)}%` } : {})}
           deltaDirection="down"
-          deltaNote={`of ${formatMoneyShort(BUDGET)}`}
+          deltaNote={activeBudget ? `of ${formatMoneyShort(activeBudget)}` : "Configure a monthly budget"}
         />
       </div>
 
@@ -331,46 +379,79 @@ function DashboardPage() {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-[17px] font-semibold text-foreground">Budget Progress</h2>
-              <span className="text-[13px] text-muted-foreground">
-                {formatMoneyShort(thisMonth)} spent
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] text-muted-foreground">{formatMoneyShort(thisMonth)} spent</span>
+                <button type="button" onClick={openBudgetEditor} className="text-[13px] font-medium text-primary hover:underline">
+                  {activeBudget === null ? "Set budget" : "Edit budget"}
+                </button>
+              </div>
             </div>
             <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-3 flex items-center justify-between text-[13px] text-muted-foreground">
-              <span>
-                {progress.toFixed(1)}% of {formatMoneyShort(BUDGET)}
-              </span>
-              <span>{formatMoneyShort(remaining)} remaining</span>
+              <span>{activeBudget ? `${progress.toFixed(1)}% of ${formatMoneyShort(activeBudget)}` : "No budget configured"}</span>
+              <span>{remaining === null ? "" : `${formatMoneyShort(remaining)} remaining`}</span>
             </div>
             <div className="mt-4 rounded-xl bg-success-soft px-4 py-3 text-[14px] text-success">
-              {progress < 100
+              {activeBudget === null
+                ? "Set a current-month budget in Google Sheets to track progress."
+                : progress < 100
                 ? "You're on track to meet your budget this month."
                 : "You have exceeded this month's budget."}
             </div>
           </Card>
 
-          <Card className="flex items-start gap-4 p-6">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft">
-              <FileText className="h-5 w-5 text-primary" />
+          <Card className="flex min-h-[86px] items-center gap-3 border-primary/10 bg-primary-soft/20 p-3.5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+              <FileText className="h-6 w-6 text-primary" />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-[15px] font-semibold text-foreground">Monthly Expense Report</h3>
-              <p className="mt-1 text-[14px] text-muted-foreground">
+              <h3 className="text-[13px] font-semibold text-foreground">Monthly Expense Report</h3>
+              <p className="mt-1 max-w-[210px] text-[12px] leading-4 text-muted-foreground">
                 View a detailed breakdown of your expenses for{" "}
                 {now.toLocaleDateString("en-US", { month: "long" })} {year}.
               </p>
             </div>
             <Link
               to="/reports"
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-border px-4 text-[14px] font-medium text-primary hover:bg-muted"
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-[12px] font-semibold text-primary hover:bg-muted"
             >
-              View Report ›
+              View Report <span aria-hidden>›</span>
             </Link>
           </Card>
         </div>
       </div>
+      <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>{activeBudget === null ? "Set monthly budget" : "Update monthly budget"}</DialogTitle>
+            <DialogDescription>
+              This organization-wide GHS budget applies to {now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="block text-[14px] font-medium text-foreground" htmlFor="monthly-budget">
+            Budget amount (GHS)
+          </label>
+          <input
+            id="monthly-budget"
+            autoFocus
+            min="0.01"
+            step="0.01"
+            type="number"
+            value={budgetAmount}
+            onChange={(event) => setBudgetAmount(event.target.value)}
+            className="h-11 w-full rounded-none border border-border bg-card px-3 text-[15px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+          />
+          {budgetError ? <p className="text-[14px] text-destructive">{budgetError}</p> : null}
+          <DialogFooter>
+            <SecondaryButton type="button" onClick={() => setBudgetOpen(false)}>Cancel</SecondaryButton>
+            <PrimaryButton type="button" disabled={isSavingBudget} onClick={saveCurrentMonthBudget}>
+              {isSavingBudget ? "Saving..." : "Save budget"}
+            </PrimaryButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

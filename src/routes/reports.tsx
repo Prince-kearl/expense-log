@@ -10,11 +10,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, Download, TrendingUp } from "lucide-react";
+import { BarChart3, CalendarDays, Download, TrendingUp, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, PageHeader, SecondaryButton, fieldClass } from "@/components/expense-ui";
-import { useExpenses } from "@/lib/sample-store";
+import { Card, PageHeader, SecondaryButton, StatCard, fieldClass } from "@/components/expense-ui";
+import { useExpenses } from "@/lib/app-data";
 import { CATEGORY_COLORS, formatMoney, formatMoneyShort } from "@/lib/expenses";
 
 export const Route = createFileRoute("/reports")({
@@ -37,20 +37,28 @@ export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function ReportsPage() {
   const expenses = useExpenses();
-  const years = useMemo(
+  const reportingMonths = useMemo(
     () =>
-      Array.from(new Set(expenses.map((e) => e.expense_date.slice(0, 4))))
+      Array.from(new Set(expenses.map((expense) => expense.expense_date.slice(0, 7))))
         .sort()
         .reverse(),
     [expenses],
   );
-  const [year, setYear] = useState(years[0] ?? String(new Date().getFullYear()));
-
-  const scoped = expenses.filter((e) => e.expense_date.startsWith(year));
+  const [reportingMonth, setReportingMonth] = useState("");
+  const [category, setCategory] = useState("all");
+  const categories = useMemo(
+    () => Array.from(new Set(expenses.map((expense) => expense.category))).sort(),
+    [expenses],
+  );
+  const selectedMonth = reportingMonth || reportingMonths[0] || new Date().toISOString().slice(0, 7);
+  const year = selectedMonth.slice(0, 4);
+  const scoped = expenses
+    .filter((expense) => expense.expense_date.startsWith(selectedMonth))
+    .filter((expense) => category === "all" || expense.category === category);
   const total = scoped.reduce((s, e) => s + e.amount, 0);
 
   const monthly = MONTHS.map((label, i) => ({
@@ -75,6 +83,30 @@ function ReportsPage() {
     .map(([name, v]) => ({ name, ...v }))
     .sort((a, b) => b.amount - a.amount);
 
+  function exportReport() {
+    const columns = ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund", "Submitted By"];
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const rows = scoped.map((expense) => [
+      expense.expense_id,
+      expense.expense_date,
+      expense.description,
+      expense.category,
+      expense.amount,
+      expense.currency,
+      expense.vendor,
+      expense.payment_method,
+      expense.account,
+      expense.created_by_name,
+    ].map(escapeCsv).join(","));
+    const file = new Blob([[columns.map(escapeCsv).join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `expense-report-${selectedMonth}${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -84,15 +116,22 @@ function ReportsPage() {
         actions={
           <>
             <select
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className={`${fieldClass} h-11 w-[140px]`}
+              value={selectedMonth}
+              onChange={(event) => setReportingMonth(event.target.value)}
+              className={`${fieldClass} h-11 w-[154px]`}
             >
-              {years.map((y) => (
-                <option key={y}>{y}</option>
+              {reportingMonths.length === 0 ? <option value={selectedMonth}>{selectedMonth}</option> : null}
+              {reportingMonths.map((month) => (
+                <option key={month} value={month}>
+                  {new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </option>
               ))}
             </select>
-            <SecondaryButton>
+            <select value={category} onChange={(event) => setCategory(event.target.value)} className={`${fieldClass} h-11 w-[154px]`}>
+              <option value="all">All Categories</option>
+              {categories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}
+            </select>
+            <SecondaryButton onClick={exportReport}>
               <Download className="h-4 w-4" /> Export
             </SecondaryButton>
           </>
@@ -100,39 +139,16 @@ function ReportsPage() {
       />
 
       <div className="grid gap-5 md:grid-cols-3">
-        <Card className="p-5">
-          <p className="text-[15px] text-muted-foreground">Total Spending</p>
-          <p className="mt-1 text-[26px] leading-8 font-bold tracking-tight text-foreground">
-            {formatMoneyShort(total)}
-          </p>
-          <p className="mt-1 text-[13px] text-muted-foreground">{year} to date</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-[15px] text-muted-foreground">Monthly Average</p>
-          <p className="mt-1 text-[26px] leading-8 font-bold tracking-tight text-foreground">
-            {formatMoneyShort(average)}
-          </p>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Across {activeMonths.length} active months
-          </p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-[15px] text-muted-foreground">Highest Month</p>
-          <p className="mt-1 text-[26px] leading-8 font-bold tracking-tight text-foreground">
-            {formatMoneyShort(peak.value)}
-          </p>
-          <p className="mt-1 flex items-center gap-1 text-[13px] text-muted-foreground">
-            <TrendingUp className="h-3.5 w-3.5 text-success" />
-            {peak.label} {year}
-          </p>
-        </Card>
+        <StatCard icon={<Wallet className="h-4 w-4 text-primary" />} iconClass="bg-primary-soft" accentClass="border-t-primary" label="Total Spending" value={formatMoneyShort(total)} deltaNote={new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
+        <StatCard icon={<CalendarDays className="h-4 w-4 text-success" />} iconClass="bg-success-soft" accentClass="border-t-success" label="Transactions" value={String(scoped.length)} deltaNote={category === "all" ? "All categories" : category} />
+        <StatCard icon={<TrendingUp className="h-4 w-4 text-violet" />} iconClass="bg-violet-soft" accentClass="border-t-violet" label="Highest Month" value={formatMoneyShort(peak.value)} deltaNote={`${peak.label} ${year}`} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Card className="p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Monthly Spending Trend</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Total spend per month for {year}.
+            Monthly spend for {year}{category === "all" ? "" : ` in ${category}`}.
           </p>
           <div className="mt-6 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -220,7 +236,7 @@ function ReportsPage() {
         <div className="px-6 pt-6 pb-4">
           <h2 className="text-[17px] font-semibold text-foreground">Top Spending Categories</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Ranked by total spend for {year}.
+            Ranked by total spend for {new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
           </p>
         </div>
         <div className="overflow-x-auto">

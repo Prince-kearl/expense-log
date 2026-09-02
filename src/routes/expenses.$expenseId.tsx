@@ -26,7 +26,7 @@ import {
   StatusPill,
   UserCell,
 } from "@/components/expense-ui";
-import { useExpenses } from "@/lib/sample-store";
+import { useExpenses } from "@/lib/app-data";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/expenses";
 
 export const Route = createFileRoute("/expenses/$expenseId")({
@@ -143,11 +143,6 @@ function ExpenseDetailsPage() {
                 value={`${expense.category}${expense.subcategory ? ` · ${expense.subcategory}` : ""}`}
               />
               <Row
-                icon={<Building2 className="h-4.5 w-4.5" />}
-                label="Department"
-                value={expense.department || "—"}
-              />
-              <Row
                 icon={<Store className="h-4.5 w-4.5" />}
                 label="Vendor"
                 value={expense.vendor || "—"}
@@ -196,9 +191,11 @@ function ExpenseDetailsPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-[17px] font-semibold text-foreground">Receipt</h2>
             {expense.receipt_file_id ? (
-              <PrimaryButton className="h-9 px-4 text-[14px]">
-                <Download className="h-4 w-4" /> Download
-              </PrimaryButton>
+              <a href={`/api/receipts/${encodeURIComponent(expense.receipt_file_id)}`} target="_blank" rel="noreferrer">
+                <PrimaryButton className="h-9 px-4 text-[14px]">
+                  <Download className="h-4 w-4" /> View Receipt
+                </PrimaryButton>
+              </a>
             ) : null}
           </div>
 

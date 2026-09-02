@@ -11,7 +11,7 @@ import {
   UserCell,
   fieldClass,
 } from "@/components/expense-ui";
-import { CATEGORIES, useExpenses } from "@/lib/sample-store";
+import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
 import { formatDate, formatMoney } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/expenses/")({
 
 function ExpensesPage() {
   const expenses = useExpenses();
+  const configuration = useExpenseConfiguration();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
@@ -107,7 +108,7 @@ function ExpensesPage() {
             className={fieldClass}
           >
             <option value="all">All Categories</option>
-            {CATEGORIES.map((c) => (
+            {configuration.categories.map((c) => (
               <option key={c.category}>{c.category}</option>
             ))}
           </select>
@@ -212,7 +213,7 @@ function ExpensesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(Math.max(1, current - 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted"
               aria-label="Previous page"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -222,7 +223,7 @@ function ExpensesPage() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={cn(
-                  "h-9 w-9 rounded-lg text-[14px] font-medium",
+                  "h-9 w-9 rounded-full text-[14px] font-medium",
                   p === current
                     ? "bg-primary text-primary-foreground"
                     : "border border-border text-foreground hover:bg-muted",
@@ -233,7 +234,7 @@ function ExpensesPage() {
             ))}
             <button
               onClick={() => setPage(Math.min(pages, current + 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted"
               aria-label="Next page"
             >
               <ChevronRight className="h-4 w-4" />
@@ -247,7 +248,7 @@ function ExpensesPage() {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
-              className="h-9 rounded-lg border border-border bg-card px-2 text-foreground"
+              className="h-9 rounded-none border border-border bg-card px-2 text-foreground"
             >
               {[10, 20, 50].map((n) => (
                 <option key={n}>{n}</option>

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
@@ -20,8 +20,6 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-6">
       <div className="w-full max-w-[420px] card-surface p-10 text-center shadow-elevated">
@@ -39,8 +37,10 @@ function LoginPage() {
         </p>
 
         <button
-          onClick={() => navigate({ to: "/dashboard" })}
-          className="mt-8 inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          onClick={() => {
+            window.location.assign("/api/auth/google");
+          }}
+          className="mt-8 inline-flex h-12 w-full items-center justify-center gap-3 rounded-full bg-primary text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <GoogleMark />
           Continue with Google

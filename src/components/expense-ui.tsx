@@ -15,6 +15,7 @@ export function StatCard({
   delta,
   deltaDirection = "up",
   deltaNote,
+  accentClass = "border-t-primary",
 }: {
   icon: ReactNode;
   iconClass: string;
@@ -23,21 +24,26 @@ export function StatCard({
   delta?: string;
   deltaDirection?: "up" | "down";
   deltaNote?: string;
+  accentClass?: string;
 }) {
   return (
-    <Card className="flex items-start gap-4 p-5">
-      <span
-        className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl", iconClass)}
-      >
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-[15px] text-muted-foreground">{label}</p>
-        <p className="mt-1 text-[26px] leading-8 font-bold tracking-tight text-foreground">
+    <Card className={cn("min-h-[136px] border-t-2 p-4", accentClass)}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[30px] leading-9 font-bold tracking-tight text-foreground">
           {value}
-        </p>
+          </p>
+          <p className="mt-2 text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase">
+            {label}
+          </p>
+        </div>
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center", iconClass)}>
+          {icon}
+        </span>
+      </div>
+      <div className="mt-4 border-t border-border pt-3">
         {delta || deltaNote ? (
-          <p className="mt-1 flex items-center gap-1 text-[13px]">
+          <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
             {delta ? (
               <span
                 className={cn(
@@ -55,7 +61,7 @@ export function StatCard({
             ) : null}
             {deltaNote ? <span className="text-muted-foreground">{deltaNote}</span> : null}
           </p>
-        ) : null}
+        ) : <p className="text-[12px] text-muted-foreground">Current period</p>}
       </div>
     </Card>
   );
@@ -139,7 +145,7 @@ export function PrimaryButton({
     <button
       {...props}
       className={cn(
-        "inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60",
+        "inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60",
         className,
       )}
     >
@@ -157,7 +163,7 @@ export function SecondaryButton({
     <button
       {...props}
       className={cn(
-        "inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-5 text-[15px] font-medium text-foreground transition-colors hover:bg-muted",
+        "inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-5 text-[15px] font-medium text-foreground transition-colors hover:bg-muted",
         className,
       )}
     >
@@ -167,6 +173,6 @@ export function SecondaryButton({
 }
 
 export const fieldClass =
-  "h-12 w-full rounded-xl border border-border bg-card px-4 text-[15px] text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted-foreground";
+  "h-12 w-full rounded-none border border-border bg-card px-4 text-[15px] text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-muted-foreground";
 
 export const labelClass = "mb-2 block text-[14px] font-medium text-foreground";
