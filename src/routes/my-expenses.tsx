@@ -5,11 +5,12 @@ import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
+  KpiCarousel,
   PageHeader,
   PrimaryButton,
   SecondaryButton,
+  SelectField,
   StatCard,
-  StatusPill,
   fieldClass,
 } from "@/components/expense-ui";
 import { useExpenseConfiguration, useMyExpenses } from "@/lib/app-data";
@@ -49,7 +50,6 @@ function MyExpensesPage() {
   const thisMonth = mine
     .filter((e) => e.expense_date.startsWith(monthKey))
     .reduce((s, e) => s + e.amount, 0);
-  const pending = mine.filter((e) => e.status === "Pending").length;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,7 +78,7 @@ function MyExpensesPage() {
         }
       />
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <KpiCarousel gridClassName="sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           icon={<Wallet className="h-6 w-6 text-primary" />}
           iconClass="bg-primary-soft"
@@ -106,15 +106,7 @@ function MyExpensesPage() {
           value={String(mine.length)}
           deltaNote="Records submitted"
         />
-        <StatCard
-          icon={<Receipt className="h-6 w-6 text-warning" />}
-          iconClass="bg-warning-soft"
-          accentClass="border-t-warning"
-          label="Pending"
-          value={String(pending)}
-          deltaNote="Awaiting approval"
-        />
-      </div>
+      </KpiCarousel>
 
       <Card className="my-5 flex flex-wrap items-end gap-4 p-5">
         <div className="relative min-w-[260px] flex-1">
@@ -128,16 +120,12 @@ function MyExpensesPage() {
         </div>
         <div className="w-[220px]">
           <label className="mb-2 block text-[13px] text-muted-foreground">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className={fieldClass}
-          >
+          <SelectField value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="all">All Categories</option>
             {configuration.categories.map((c) => (
               <option key={c.category}>{c.category}</option>
             ))}
-          </select>
+          </SelectField>
         </div>
         <SecondaryButton
           onClick={() => {
@@ -150,7 +138,43 @@ function MyExpensesPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border/70 sm:hidden">
+          {filtered.map((e) => (
+            <div
+              key={e.expense_id}
+              onClick={() =>
+                navigate({ to: "/expenses/$expenseId", params: { expenseId: e.expense_id } })
+              }
+              className="flex cursor-pointer items-center gap-3 px-6 py-4 transition-colors hover:bg-muted/60"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                  <CategoryPill category={e.category} />
+                </div>
+              </div>
+              <p className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-foreground">
+                {formatMoney(e.amount, e.currency)}
+              </p>
+            </div>
+          ))}
+          {filtered.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <p className="text-[15px] font-medium text-foreground">
+                You have not recorded any expenses yet.
+              </p>
+              <Link
+                to="/expenses/new"
+                className="mt-2 inline-block text-[14px] font-medium text-primary hover:underline"
+              >
+                Add your first expense
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[820px] text-left">
             <thead>
               <tr className="border-b border-border text-[13px] text-muted-foreground">
@@ -158,7 +182,6 @@ function MyExpensesPage() {
                 <th className="px-6 py-4 font-medium">Description</th>
                 <th className="px-6 py-4 font-medium">Category</th>
                 <th className="px-6 py-4 font-medium">Amount</th>
-                <th className="px-6 py-4 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -180,14 +203,11 @@ function MyExpensesPage() {
                   <td className="px-6 py-4 text-[15px] whitespace-nowrap text-foreground">
                     {formatMoney(e.amount, e.currency)}
                   </td>
-                  <td className="px-6 py-4">
-                    <StatusPill status={e.status} />
-                  </td>
                 </tr>
               ))}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td colSpan={4} className="px-6 py-16 text-center">
                     <p className="text-[15px] font-medium text-foreground">
                       You have not recorded any expenses yet.
                     </p>

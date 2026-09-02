@@ -8,6 +8,7 @@ import {
   PageHeader,
   PrimaryButton,
   SecondaryButton,
+  SelectField,
   fieldClass,
   labelClass,
 } from "@/components/expense-ui";
@@ -337,18 +338,17 @@ function NewExpensePage() {
               <label className={labelClass}>
                 Category <span className="text-destructive">*</span>
               </label>
-              <select
+              <SelectField
                 value={draft.category}
                 onChange={(e) => {
                   setDraft((current) => ({ ...current, category: e.target.value, subcategory: "" }));
                 }}
-                className={fieldClass}
               >
                 <option value="">Select category</option>
                 {categories.map((c) => (
                   <option key={c.category}>{c.category}</option>
                 ))}
-              </select>
+              </SelectField>
               {errors.category ? (
                 <p className="mt-1.5 text-[13px] text-destructive">{errors.category}</p>
               ) : null}
@@ -356,11 +356,11 @@ function NewExpensePage() {
 
             <div>
               <label className={labelClass}>Subcategory</label>
-              <select
+              <SelectField
                 value={draft.subcategory}
                 onChange={(e) => setDraft((current) => ({ ...current, subcategory: e.target.value }))}
                 disabled={!draft.category}
-                className={cn(fieldClass, !draft.category && "opacity-60")}
+                className={cn(!draft.category && "opacity-60")}
               >
                 <option value="">
                   {draft.category ? "Select subcategory" : "Select a category first"}
@@ -368,7 +368,7 @@ function NewExpensePage() {
                 {subcategories.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
-              </select>
+              </SelectField>
             </div>
 
             <div>
@@ -394,16 +394,15 @@ function NewExpensePage() {
 
             <div>
               <label className={labelClass}>Payment Method</label>
-              <select
+              <SelectField
                 value={draft.paymentMethod}
                 onChange={(e) => setDraft((current) => ({ ...current, paymentMethod: e.target.value }))}
-                className={fieldClass}
               >
                 <option value="">Select payment method</option>
                 {PAYMENT_METHODS.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
-              </select>
+              </SelectField>
             </div>
 
             <div className="lg:col-span-1">

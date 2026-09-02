@@ -8,6 +8,7 @@ import {
   PageHeader,
   PrimaryButton,
   SecondaryButton,
+  SelectField,
   UserCell,
   fieldClass,
 } from "@/components/expense-ui";
@@ -99,29 +100,27 @@ function ExpensesPage() {
         </div>
         <div className="w-full sm:w-[220px]">
           <label className="mb-2 block text-[13px] text-muted-foreground">Category</label>
-          <select
+          <SelectField
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
               setPage(1);
             }}
-            className={fieldClass}
           >
             <option value="all">All Categories</option>
             {configuration.categories.map((c) => (
               <option key={c.category}>{c.category}</option>
             ))}
-          </select>
+          </SelectField>
         </div>
         <div className="w-full sm:w-[220px]">
           <label className="mb-2 block text-[13px] text-muted-foreground">Month</label>
-          <select
+          <SelectField
             value={month}
             onChange={(e) => {
               setMonth(e.target.value);
               setPage(1);
             }}
-            className={fieldClass}
           >
             <option value="all">All Months</option>
             {months.map((m) => (
@@ -132,7 +131,7 @@ function ExpensesPage() {
                 })}
               </option>
             ))}
-          </select>
+          </SelectField>
         </div>
         <SecondaryButton
           className="w-full justify-center sm:w-auto"
@@ -148,7 +147,44 @@ function ExpensesPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border/70 sm:hidden">
+          {rows.map((e) => (
+            <div
+              key={e.expense_id}
+              onClick={() =>
+                navigate({ to: "/expenses/$expenseId", params: { expenseId: e.expense_id } })
+              }
+              className="flex cursor-pointer items-start gap-3 px-6 py-4 transition-colors hover:bg-muted/60"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                  <CategoryPill category={e.category} />
+                </div>
+                <div className="mt-2.5">
+                  <UserCell name={e.created_by_name} size="sm" />
+                </div>
+              </div>
+              <p className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-foreground">
+                {formatMoney(e.amount, e.currency)}
+              </p>
+            </div>
+          ))}
+          {rows.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <p className="text-[15px] font-medium text-foreground">No expenses recorded yet.</p>
+              <Link
+                to="/expenses/new"
+                className="mt-2 inline-block text-[14px] font-medium text-primary hover:underline"
+              >
+                Add your first expense
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[860px] text-left">
             <thead>
               <tr className="border-b border-border text-[13px] text-muted-foreground">
@@ -243,18 +279,18 @@ function ExpensesPage() {
           </div>
           <div className="flex items-center gap-2 text-[14px] text-muted-foreground">
             Rows per page
-            <select
+            <SelectField
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
-              className="h-9 rounded-none border border-border bg-card px-2 text-foreground"
+              className="h-9 rounded-none border border-border bg-card pl-2 text-foreground"
             >
               {[10, 20, 50].map((n) => (
                 <option key={n}>{n}</option>
               ))}
-            </select>
+            </SelectField>
           </div>
         </div>
       </Card>
