@@ -147,3 +147,13 @@
   border-radius: 0;
   box-shadow: var(--shadow-card);
 }
+
+/* Adinkra tile pattern overlaid on the blue header area (mobile only). */
+@utility header-pattern {
+  @media (width < 64rem) {
+    background-image: url("/__l5e/assets-v1/8a387482-46ab-4fd8-8a86-5612126a97ab/adinkra-pattern.svg");
+    background-repeat: repeat;
+    background-size: 122px 70px;
+    background-position: top left;
+  }
+}
