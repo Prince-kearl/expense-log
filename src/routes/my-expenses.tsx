@@ -71,6 +71,7 @@ function MyExpensesPage() {
         title="My Expenses"
         subtitle="Expenses you have submitted."
         icon={<Receipt className="h-4 w-4" />}
+        overlapNext
         actions={
           <Link to="/expenses/new">
             <PrimaryButton>

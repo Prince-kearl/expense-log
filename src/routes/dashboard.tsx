@@ -110,6 +110,7 @@ function DashboardPage() {
         title={`${greetingText ?? "Welcome"}${currentUser ? `, ${currentUser.name.split(" ")[0]}` : ""}`}
         icon={<Calendar className="h-4 w-4" />}
         subtitle={`${now.toLocaleDateString("en-US", { month: "long" })} ${year}`}
+        overlapNext
       />
 
       <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
