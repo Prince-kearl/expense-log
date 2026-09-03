@@ -45,6 +45,22 @@ export function useCurrentUser() {
   return user;
 }
 
+export function useRequireAuth() {
+  const fetchUser = useServerFn(getCurrentUser);
+  const navigate = useNavigate();
+  const [user, setUser] = useState<AppUser | null>(null);
+  useEffect(() => {
+    fetchUser({ data: undefined })
+      .then((result) => {
+        setUser(result);
+        if (!result) navigate({ to: "/login", replace: true });
+      })
+      .catch(() => navigate({ to: "/login", replace: true }));
+  }, [fetchUser, navigate]);
+  return user;
+}
+
+
 function withDefaultCategories(configuration: ExpenseConfiguration): ExpenseConfiguration {
   const existing = new Set(configuration.categories.map((c) => c.category));
   const extras = DEFAULT_CATEGORIES.filter((c) => !existing.has(c.category));
