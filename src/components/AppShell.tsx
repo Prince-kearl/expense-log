@@ -256,7 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
 
-      <div className="flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
+      <div className="header-pattern flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
         <img src="/favico.svg" alt="CoinTrail" className="h-11 w-auto brightness-0 invert" />
         <div className="flex items-center gap-2">
           <button
