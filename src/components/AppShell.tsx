@@ -243,7 +243,8 @@ function MobileMenuOverlay({
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState<MenuKey | null>(null);
-  const currentUser = useCurrentUser();
+  const currentUser = useRequireAuth();
+
 
   function toggleMobile(menu: MenuKey) {
     setMobileMenu((current) => (current === menu ? null : menu));
