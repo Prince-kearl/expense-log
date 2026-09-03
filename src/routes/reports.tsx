@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   Cell,
   Pie,
   PieChart,
@@ -10,12 +10,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, CalendarDays, Download, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, KpiCarousel, PageHeader, SecondaryButton, SelectField, StatCard } from "@/components/expense-ui";
-import { useExpenses } from "@/lib/app-data";
-import { CATEGORY_COLORS, formatMoney, formatMoneyShort } from "@/lib/expenses";
+import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import { CATEGORY_COLORS, buildMonthlyTrend, formatMoney, formatMoneyShort } from "@/lib/expenses";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -37,10 +38,11 @@ export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const CHART_RANGES = [3, 6, 12] as const;
 
 function ReportsPage() {
   const expenses = useExpenses();
+  const configuration = useExpenseConfiguration();
   const reportingMonths = useMemo(
     () =>
       Array.from(new Set(expenses.map((expense) => expense.expense_date.slice(0, 7))))
@@ -50,26 +52,20 @@ function ReportsPage() {
   );
   const [reportingMonth, setReportingMonth] = useState("");
   const [category, setCategory] = useState("all");
-  const categories = useMemo(
-    () => Array.from(new Set(expenses.map((expense) => expense.category))).sort(),
-    [expenses],
-  );
+  const [chartRange, setChartRange] = useState<(typeof CHART_RANGES)[number]>(12);
+  const categories = configuration.categories.map((c) => c.category);
   const selectedMonth = reportingMonth || reportingMonths[0] || new Date().toISOString().slice(0, 7);
-  const year = selectedMonth.slice(0, 4);
   const scoped = expenses
     .filter((expense) => expense.expense_date.startsWith(selectedMonth))
     .filter((expense) => category === "all" || expense.category === category);
   const total = scoped.reduce((s, e) => s + e.amount, 0);
+  const categoryFiltered = expenses.filter((e) => category === "all" || e.category === category);
+  const spendingTrend = buildMonthlyTrend(categoryFiltered, 12, (m) => m.reduce((s, e) => s + e.amount, 0));
+  const countTrend = buildMonthlyTrend(categoryFiltered, 12, (m) => m.length);
+  const peak = spendingTrend.reduce((a, b) => (b.value > a.value ? b : a), spendingTrend[0]!);
 
-  const monthly = MONTHS.map((label, i) => ({
-    label,
-    value: scoped
-      .filter((e) => Number(e.expense_date.slice(5, 7)) === i + 1)
-      .reduce((s, e) => s + e.amount, 0),
-  }));
-  const activeMonths = monthly.filter((m) => m.value > 0);
-  const average = activeMonths.length ? total / activeMonths.length : 0;
-  const peak = monthly.reduce((a, b) => (b.value > a.value ? b : a), monthly[0]!);
+  const chartData = spendingTrend.slice(-chartRange);
+  const chartTotal = chartData.reduce((s, m) => s + m.value, 0);
 
   const byCategory = Object.entries(
     scoped.reduce<Record<string, { amount: number; count: number }>>((acc, e) => {
@@ -142,25 +138,74 @@ function ReportsPage() {
         }
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-3">
-        <StatCard icon={<Wallet className="h-4 w-4 text-primary" />} iconClass="bg-primary-soft" accentClass="border-t-primary" label="Total Spending" value={formatMoneyShort(total)} deltaNote={new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
-        <StatCard icon={<CalendarDays className="h-4 w-4 text-success" />} iconClass="bg-success-soft" accentClass="border-t-success" label="Transactions" value={String(scoped.length)} deltaNote={category === "all" ? "All categories" : category} />
-        <StatCard icon={<TrendingUp className="h-4 w-4 text-violet" />} iconClass="bg-violet-soft" accentClass="border-t-violet" label="Highest Month" value={formatMoneyShort(peak.value)} deltaNote={`${peak.label} ${year}`} />
+      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          label="Total Spending"
+          value={formatMoneyShort(total)}
+          tone="primary"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
+          deltaNote={new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+        />
+        <StatCard
+          label="Transactions"
+          value={String(scoped.length)}
+          tone="success"
+          trend={countTrend}
+          deltaNote={category === "all" ? "All categories" : category}
+        />
+        <StatCard
+          label="Highest Month"
+          value={formatMoneyShort(peak.value)}
+          tone="violet"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
+          deltaNote={`${peak.label} · past 12 months`}
+        />
       </KpiCarousel>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <Card className="p-4 sm:p-6">
-          <h2 className="text-[17px] font-semibold text-foreground">Monthly Spending Trend</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Monthly spend for {year}{category === "all" ? "" : ` in ${category}`}.
-          </p>
+        <Card className="min-w-0 p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[17px] font-semibold text-foreground">Spending Trend</h2>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Total spend (past {chartRange} months){category === "all" ? "" : ` in ${category}`}:{" "}
+                <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
+              </p>
+            </div>
+            <div className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-1 text-[13px]">
+              {CHART_RANGES.map((range) => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setChartRange(range)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 font-medium transition-colors",
+                    chartRange === range
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {range}M
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-6 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="reportsSpendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <XAxis
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
+                  interval={0}
                   tick={{ fontSize: 13, fill: "var(--muted-foreground)" }}
                   dy={8}
                 />
@@ -168,11 +213,14 @@ function ReportsPage() {
                   tickLine={false}
                   axisLine={false}
                   width={48}
+                  allowDecimals={false}
                   tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                  tickFormatter={(v: number) => (v ? `${v / 1000}K` : "0")}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K` : v.toLocaleString()
+                  }
                 />
                 <Tooltip
-                  cursor={{ fill: "var(--muted)" }}
+                  cursor={{ stroke: "var(--primary)", strokeWidth: 1 }}
                   contentStyle={{
                     borderRadius: 12,
                     border: "1px solid var(--border)",
@@ -181,8 +229,16 @@ function ReportsPage() {
                   }}
                   formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
                 />
-                <Bar dataKey="value" fill="var(--primary)" radius={[6, 6, 0, 0]} barSize={26} />
-              </BarChart>
+                <Area
+                  type="linear"
+                  dataKey="value"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                  fill="url(#reportsSpendFill)"
+                  dot={{ r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }}
+                  activeDot={{ r: 5, fill: "var(--primary)" }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>

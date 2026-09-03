@@ -1,10 +1,52 @@
-import { Children, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
+import { Children, useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react";
+import { Area, AreaChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { CATEGORY_BADGE, initials } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn("card-surface", className)}>{children}</div>;
+}
+
+const AVATAR_TONES = [
+  "bg-primary-soft text-primary",
+  "bg-success-soft text-success",
+  "bg-violet-soft text-violet",
+  "bg-warning-soft text-warning",
+  "bg-sky-soft text-sky",
+];
+
+export function TeamAvatarStack({
+  members,
+  max = 6,
+}: {
+  members: { name: string; email: string }[];
+  max?: number;
+}) {
+  const visible = members.slice(0, max);
+
+  return (
+    <div className="flex items-center -space-x-3">
+      {visible.map((member, i) => (
+        <span
+          key={member.email || member.name}
+          title={member.name}
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-full border-2 border-card text-[13px] font-semibold shadow-card",
+            AVATAR_TONES[i % AVATAR_TONES.length],
+          )}
+        >
+          {initials(member.name)}
+        </span>
+      ))}
+      <span
+        aria-hidden
+        className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-border bg-card text-muted-foreground"
+      >
+        <Plus className="h-4 w-4" />
+      </span>
+    </div>
+  );
 }
 
 export function KpiCarousel({
@@ -66,61 +108,124 @@ export function KpiCarousel({
   );
 }
 
+export type StatTrendPoint = { label: string; value: number };
+export type StatTone = "primary" | "success" | "violet" | "warning" | "sky";
+
+const STAT_TONE: Record<StatTone, { from: string; stroke: string; border: string }> = {
+  primary: { from: "from-primary-soft", stroke: "var(--primary)", border: "border-primary/25" },
+  success: { from: "from-success-soft", stroke: "var(--success)", border: "border-success/25" },
+  violet: { from: "from-violet-soft", stroke: "var(--violet)", border: "border-violet/25" },
+  warning: { from: "from-warning-soft", stroke: "var(--warning)", border: "border-warning/25" },
+  sky: { from: "from-sky-soft", stroke: "var(--sky)", border: "border-sky/25" },
+};
+
+function trendChangePercent(trend: StatTrendPoint[]) {
+  if (trend.length < 2) return 0;
+  const prev = trend[trend.length - 2]!.value;
+  const curr = trend[trend.length - 1]!.value;
+  if (prev === 0) return curr === 0 ? 0 : 100;
+  return ((curr - prev) / prev) * 100;
+}
+
 export function StatCard({
-  icon,
-  iconClass,
   label,
   value,
-  delta,
-  deltaDirection = "up",
   deltaNote,
-  accentClass = "border-t-primary",
+  trend,
+  tone = "primary",
+  periodLabel = "Past 12 months",
+  changePercent,
+  trendValueFormatter = (v: number) => String(v),
 }: {
-  icon: ReactNode;
-  iconClass: string;
   label: string;
   value: string;
-  delta?: string;
-  deltaDirection?: "up" | "down";
-  deltaNote?: string;
-  accentClass?: string;
+  deltaNote?: ReactNode;
+  trend: StatTrendPoint[];
+  tone?: StatTone;
+  periodLabel?: string;
+  changePercent?: number;
+  trendValueFormatter?: (value: number) => string;
 }) {
+  const gradientId = useId();
+  const { from, stroke, border } = STAT_TONE[tone];
+  const change = changePercent ?? trendChangePercent(trend);
+  const changeUp = change >= 0;
+  const last = trend[trend.length - 1];
+
   return (
-    <Card className={cn("min-h-[132px] border-t-2 p-3.5 sm:min-h-[136px] sm:p-4", accentClass)}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[26px] leading-8 font-bold tracking-tight text-foreground sm:text-[30px] sm:leading-9">
-          {value}
+    <Card className={cn("relative overflow-hidden border bg-gradient-to-br via-card to-card p-4", from, border)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-muted-foreground">{label}</p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold",
+                changeUp ? "bg-success-soft text-success" : "bg-destructive/10 text-destructive",
+              )}
+            >
+              {changeUp ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+              {Math.abs(change).toFixed(1)}%
+            </span>
+            <span className="flex items-center gap-0.5 text-[12px] text-muted-foreground">
+              {periodLabel}
+              <ChevronDown className="h-3 w-3" />
+            </span>
+          </div>
+
+          <p className="mt-3 truncate text-[26px] leading-8 font-bold tracking-tight text-foreground sm:text-[28px]">
+            {value}
           </p>
-          <p className="mt-2 text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase">
-            {label}
-          </p>
+          {deltaNote ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{deltaNote}</p> : null}
         </div>
-        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center", iconClass)}>
-          {icon}
-        </span>
-      </div>
-      <div className="mt-4 border-t border-border pt-3">
-        {delta || deltaNote ? (
-          <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
-            {delta ? (
-              <span
-                className={cn(
-                  "flex items-center gap-0.5 font-medium",
-                  deltaDirection === "up" ? "text-success" : "text-warning",
-                )}
-              >
-                {deltaDirection === "up" ? (
-                  <ArrowUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5" />
-                )}
-                {delta}
-              </span>
-            ) : null}
-            {deltaNote ? <span className="text-muted-foreground">{deltaNote}</span> : null}
-          </p>
-        ) : <p className="text-[12px] text-muted-foreground">Current period</p>}
+
+        <div className="relative h-16 w-24 shrink-0 pt-6 sm:h-20 sm:w-28">
+          {last ? (
+            <div className="absolute top-0 right-0 z-10 border border-border bg-card px-2 py-1 text-left whitespace-nowrap shadow-card">
+              <p className="text-[11px] font-semibold text-foreground">{trendValueFormatter(last.value)}</p>
+              <p className="text-[10px] text-muted-foreground">{last.label}</p>
+            </div>
+          ) : null}
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trend} margin={{ top: 0, right: 2, left: 2, bottom: 0 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={stroke} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="label" hide />
+              <YAxis hide domain={["dataMin", "dataMax"]} />
+              {last ? (
+                <ReferenceLine x={last.label} stroke={stroke} strokeOpacity={0.4} strokeDasharray="2 3" />
+              ) : null}
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={stroke}
+                strokeWidth={2}
+                fill={`url(#${gradientId})`}
+                isAnimationActive={false}
+                dot={(dotProps: { cx?: number; cy?: number; index?: number }) =>
+                  dotProps.index === trend.length - 1 ? (
+                    <circle
+                      key="end-dot"
+                      cx={dotProps.cx}
+                      cy={dotProps.cy}
+                      r={3.5}
+                      fill={stroke}
+                      stroke="var(--card)"
+                      strokeWidth={1.5}
+                    />
+                  ) : (
+                    <g key={`empty-dot-${dotProps.index}`} />
+                  )
+                }
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </Card>
   );
@@ -223,10 +328,13 @@ export const fieldClass =
 
 export const labelClass = "mb-2 block text-[14px] font-medium text-foreground";
 
+const selectFieldClass =
+  "h-11 w-full appearance-none rounded-full border border-border bg-card px-4 pr-10 text-[14px] text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/15";
+
 export function SelectField({ className, children, ...props }: ComponentProps<"select">) {
   return (
     <div className="relative">
-      <select {...props} className={cn(fieldClass, "appearance-none pr-10", className)}>
+      <select {...props} className={cn(selectFieldClass, className)}>
         {children}
       </select>
       <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

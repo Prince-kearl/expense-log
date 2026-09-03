@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { CalendarDays, FileText, Plus, Receipt, RotateCcw, Search, Wallet } from "lucide-react";
+import { Plus, Receipt, RotateCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -14,7 +14,7 @@ import {
   fieldClass,
 } from "@/components/expense-ui";
 import { useExpenseConfiguration, useMyExpenses } from "@/lib/app-data";
-import { formatDate, formatMoney, formatMoneyShort } from "@/lib/expenses";
+import { buildMonthlyTrend, formatDate, formatMoney, formatMoneyShort } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/my-expenses")({
@@ -50,6 +50,8 @@ function MyExpensesPage() {
   const thisMonth = mine
     .filter((e) => e.expense_date.startsWith(monthKey))
     .reduce((s, e) => s + e.amount, 0);
+  const spendingTrend = buildMonthlyTrend(mine, 12, (m) => m.reduce((s, e) => s + e.amount, 0));
+  const countTrend = buildMonthlyTrend(mine, 12, (m) => m.length);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,32 +80,31 @@ function MyExpensesPage() {
         }
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-2 xl:grid-cols-3">
+      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          icon={<Wallet className="h-6 w-6 text-primary" />}
-          iconClass="bg-primary-soft"
-          accentClass="border-t-primary"
           label="My Total"
           value={formatMoneyShort(total)}
+          tone="primary"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
           deltaNote="All time"
         />
         <StatCard
-          icon={<CalendarDays className="h-6 w-6 text-success" />}
-          iconClass="bg-success-soft"
-          accentClass="border-t-success"
           label="This Month"
           value={formatMoneyShort(thisMonth)}
+          tone="success"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
           deltaNote={new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
             month: "long",
             year: "numeric",
           })}
         />
         <StatCard
-          icon={<FileText className="h-6 w-6 text-violet" />}
-          iconClass="bg-violet-soft"
-          accentClass="border-t-violet"
           label="My Transactions"
           value={String(mine.length)}
+          tone="violet"
+          trend={countTrend}
           deltaNote="Records submitted"
         />
       </KpiCarousel>

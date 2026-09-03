@@ -111,3 +111,24 @@ export function initials(name: string) {
     .map((n) => n[0]?.toUpperCase())
     .join("");
 }
+
+export function buildMonthlyTrend(
+  expenses: Expense[],
+  monthsBack: number,
+  select: (monthExpenses: Expense[]) => number,
+): { label: string; value: number }[] {
+  const now = new Date();
+  const points: { label: string; value: number }[] = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const cursor = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthExpenses = expenses.filter((expense) => {
+      const expenseDate = new Date(`${expense.expense_date}T00:00:00`);
+      return expenseDate.getFullYear() === cursor.getFullYear() && expenseDate.getMonth() === cursor.getMonth();
+    });
+    points.push({
+      label: cursor.toLocaleDateString("en-US", { month: "short" }),
+      value: select(monthExpenses),
+    });
+  }
+  return points;
+}
