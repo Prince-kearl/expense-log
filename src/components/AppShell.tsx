@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, BarChart3, Clock, FileText, Home, LogOut, Monitor, Moon, PlusCircle, Sun, User } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useCurrentUser } from "@/lib/app-data";
+import { useCurrentUser, useRequireAuth } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
