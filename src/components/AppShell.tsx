@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, BarChart3, FileText, Home, LogOut, Monitor, Moon, PlusCircle, Sun, User } from "lucide-react";
+import { Bell, BarChart3, Clock, FileText, Home, LogOut, Monitor, Moon, PlusCircle, Sun, User } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useCurrentUser } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
@@ -11,6 +11,7 @@ const NAV = [
   { label: "Expenses", to: "/expenses", icon: FileText },
   { label: "Add Expense", to: "/expenses/new", icon: PlusCircle },
   { label: "My Expenses", to: "/my-expenses", icon: User },
+  { label: "Time Tracking", to: "/time", icon: Clock },
   { label: "Reports", to: "/reports", icon: BarChart3 },
 ] as const;
 
@@ -254,8 +255,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
 
-      <div className="flex items-center justify-between gap-2 p-4 lg:hidden">
-        <img src="/logo-primary.png" alt="CoinTrail" className="h-11 w-auto" />
+      <div className="flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
+        <img src="/favico.svg" alt="CoinTrail" className="h-11 w-auto brightness-0 invert" />
         <div className="flex items-center gap-2">
           <button
             onClick={() => toggleMobile("notifications")}

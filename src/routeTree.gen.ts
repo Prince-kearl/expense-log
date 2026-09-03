@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyExpensesRouteImport } from './routes/my-expenses'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as TimeRouteImport } from './routes/time'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses.index'
 import { Route as ExpensesExpenseIdRouteImport } from './routes/expenses.$expenseId'
 import { Route as ExpensesNewRouteImport } from './routes/expenses.new'
@@ -44,6 +45,11 @@ const MyExpensesRoute = MyExpensesRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TimeRoute = TimeRouteImport.update({
+  id: '/time',
+  path: '/time',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesIndexRoute = ExpensesIndexRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses': typeof ExpensesIndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/expenses/': typeof ExpensesIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses/'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/expenses/'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MyExpensesRoute: typeof MyExpensesRoute
   ReportsRoute: typeof ReportsRoute
+  TimeRoute: typeof TimeRoute
   ExpensesExpenseIdRoute: typeof ExpensesExpenseIdRoute
   ExpensesNewRoute: typeof ExpensesNewRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/time': {
+      id: '/time'
+      path: '/time'
+      fullPath: '/time'
+      preLoaderRoute: typeof TimeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses/': {
@@ -261,6 +281,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MyExpensesRoute: MyExpensesRoute,
   ReportsRoute: ReportsRoute,
+  TimeRoute: TimeRoute,
   ExpensesExpenseIdRoute: ExpensesExpenseIdRoute,
   ExpensesNewRoute: ExpensesNewRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
