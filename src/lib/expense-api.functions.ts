@@ -10,8 +10,12 @@ import {
 } from "./google.server";
 import { readCookie, readSession } from "./session.server";
 
+async function getUserOrNull(request: Request) {
+  return readSession(readCookie(request, "expense_tracker_session"));
+}
+
 async function requireCurrentUser(request: Request) {
-  const user = await readSession(readCookie(request, "expense_tracker_session"));
+  const user = await getUserOrNull(request);
   if (!user) throw new Error("You must sign in before accessing expenses.");
   return user;
 }
@@ -27,19 +31,23 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(async ()
 });
 
 export const getExpenses = createServerFn({ method: "GET" }).handler(async () => {
-  await requireCurrentUser(getRequest());
+  const user = await getUserOrNull(getRequest());
+  if (!user) return [] as Expense[];
   return getExpensesFromSheet();
 });
 
 export const getMyExpenses = createServerFn({ method: "GET" }).handler(async () => {
-  const user = await requireCurrentUser(getRequest());
+  const user = await getUserOrNull(getRequest());
+  if (!user) return [] as Expense[];
   return (await getExpensesFromSheet()).filter((expense) => expense.created_by_user_id === user.user_id);
 });
 
 export const getExpenseConfiguration = createServerFn({ method: "GET" }).handler(async () => {
-  await requireCurrentUser(getRequest());
+  const user = await getUserOrNull(getRequest());
+  if (!user) return { categories: [], paymentMethods: [], accounts: [], currencies: [] };
   return getApplicationConfiguration();
 });
+
 
 export const createExpenseCategory = createServerFn({ method: "POST" })
   .validator((data: { category: string; subcategory: string }) => data)
