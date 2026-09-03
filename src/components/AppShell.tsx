@@ -1,8 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, BarChart3, FileText, Home, LogOut, PlusCircle, User } from "lucide-react";
+import { Bell, BarChart3, FileText, Home, LogOut, Monitor, Moon, PlusCircle, Sun, User } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useCurrentUser } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
+import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -21,6 +22,42 @@ function useActiveNav() {
     to === "/expenses" ? pathname === "/expenses" : pathname === to || pathname.startsWith(`${to}/`);
 }
 
+const THEME_OPTIONS: { value: Theme; icon: typeof Monitor; label: string }[] = [
+  { value: "system", icon: Monitor, label: "Use system theme" },
+  { value: "light", icon: Sun, label: "Use light theme" },
+  { value: "dark", icon: Moon, label: "Use dark theme" },
+];
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 p-1">
+      {THEME_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        const active = theme === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setTheme(option.value)}
+            aria-label={option.label}
+            aria-pressed={active}
+            className={cn(
+              "flex h-8 w-10 items-center justify-center rounded-full transition-colors",
+              active
+                ? "bg-primary text-primary-foreground shadow-card"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useCurrentUser> }) {
   return (
     <>
@@ -35,6 +72,12 @@ function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useC
           <p className="truncate text-xs text-muted-foreground">{currentUser?.email ?? ""}</p>
         </div>
       </div>
+
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="mb-2 text-[13px] font-medium text-muted-foreground">Theme</p>
+        <ThemeToggle />
+      </div>
+
       <a
         href="/api/auth/signout"
         className="mt-4 flex h-9 items-center gap-3 text-[15px] text-muted-foreground transition-colors hover:text-foreground"
@@ -72,10 +115,12 @@ function DesktopNav() {
       {openMenu ? (
         <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} aria-hidden />
       ) : null}
-      <div className="relative z-50 flex items-center gap-1 rounded-full bg-primary p-1.5 shadow-card">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground">
-          <BarChart3 className="h-4 w-4 text-primary" strokeWidth={2.5} />
-        </span>
+      <div className="relative z-50 flex items-center gap-1 rounded-full bg-primary py-1.5 pr-3 pl-1.5 shadow-card">
+        <img
+          src="/favico.svg"
+          alt="CoinTrail"
+          className="h-11 w-auto shrink-0 pl-1 brightness-0 invert"
+        />
 
         <nav className="flex items-center gap-1 px-3" aria-label="Primary">
           {NAV.map((item) => {
@@ -144,10 +189,10 @@ function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
       aria-label="Primary"
     >
-      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-0.5 rounded-full bg-primary p-1.5 shadow-card">
+      <div className="flex w-fit max-w-full items-center gap-1 rounded-full bg-primary p-1.5 shadow-card">
         {NAV.map((item) => {
           const active = isActive(item.to);
           const Icon = item.icon;
@@ -160,7 +205,7 @@ function MobileBottomNav() {
               className={cn(
                 "flex min-w-0 items-center justify-center rounded-full border transition-colors",
                 active
-                  ? "flex-1 gap-1.5 border-primary-foreground/50 bg-primary-foreground/15 px-3 py-2.5 text-primary-foreground backdrop-blur-sm"
+                  ? "gap-1.5 border-primary-foreground/50 bg-primary-foreground/15 px-3 py-2.5 text-primary-foreground backdrop-blur-sm"
                   : "h-10 w-10 shrink-0 border-transparent text-primary-foreground/50 hover:text-primary-foreground/80",
               )}
             >
@@ -209,21 +254,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
 
-      <div className="flex items-center justify-end gap-2 p-4 lg:hidden">
-        <button
-          onClick={() => toggleMobile("notifications")}
-          aria-label="Notifications"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-card"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => toggleMobile("account")}
-          aria-label="Account menu"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground shadow-card"
-        >
-          {currentUser ? initials(currentUser.name) : <User className="h-4 w-4" />}
-        </button>
+      <div className="flex items-center justify-between gap-2 p-4 lg:hidden">
+        <img src="/logo-primary.png" alt="CoinTrail" className="h-11 w-auto" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toggleMobile("notifications")}
+            aria-label="Notifications"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-card"
+          >
+            <Bell className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => toggleMobile("account")}
+            aria-label="Account menu"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground shadow-card"
+          >
+            {currentUser ? initials(currentUser.name) : <User className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       <main className="px-4 pt-0 pb-28 sm:px-6 sm:pb-28 lg:px-8 lg:pt-8 lg:pb-10">{children}</main>

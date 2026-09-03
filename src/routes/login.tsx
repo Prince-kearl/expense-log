@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -29,10 +28,8 @@ function LoginPage() {
 
       <div className="relative w-full max-w-[420px] card-surface p-10 text-center shadow-elevated">
         <div className="flex flex-col items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-            <BarChart3 className="h-6 w-6 text-primary-foreground" strokeWidth={2.5} />
-          </span>
-          <span className="text-[22px] font-bold tracking-tight text-foreground">CoinTrail</span>
+          <img src="/favico.svg" alt="CoinTrail" className="h-20 w-auto" />
+          <span className="text-[15px] font-normal tracking-tight text-foreground">CoinTrail</span>
         </div>
 
         <h1 className="mt-6 text-[19px] font-semibold text-foreground">Welcome back</h1>
