@@ -10,22 +10,22 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Calendar, FileText, Plus, Wallet } from "lucide-react";
-import { useState } from "react";
+import { Calendar, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
   KpiCarousel,
   PageHeader,
-  PrimaryButton,
-  SecondaryButton,
   StatCard,
+  TeamAvatarStack,
   UserCell,
 } from "@/components/expense-ui";
 import { useCurrentUser, useExpenses } from "@/lib/app-data";
 import {
   CATEGORY_COLORS,
+  buildMonthlyTrend,
   formatDate,
   formatMoney,
   formatMoneyShort,
@@ -51,20 +51,7 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+const CHART_RANGES = [3, 6, 12] as const;
 
 function DashboardPage() {
   const expenses = useExpenses();
@@ -72,7 +59,17 @@ function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
-  const [chartPeriod, setChartPeriod] = useState<"monthly" | "yearly">("yearly");
+  const [chartRange, setChartRange] = useState<(typeof CHART_RANGES)[number]>(12);
+  const [greetingText, setGreetingText] = useState<string | null>(null);
+  useEffect(() => {
+    setGreetingText(greeting());
+  }, []);
+
+  const teamMembers = Array.from(
+    new Map(
+      expenses.map((e) => [e.created_by_user_id, { name: e.created_by_name, email: e.created_by_email }]),
+    ).values(),
+  );
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const thisMonth = expenses
@@ -88,34 +85,11 @@ function DashboardPage() {
     })
     .reduce((s, e) => s + e.amount, 0);
   const monthDelta = prevMonth ? ((thisMonth - prevMonth) / prevMonth) * 100 : 0;
+  const spendingTrend = buildMonthlyTrend(expenses, 12, (m) => m.reduce((s, e) => s + e.amount, 0));
+  const countTrend = buildMonthlyTrend(expenses, 12, (m) => m.length);
 
-  const monthly = MONTHS.map((label, i) => ({
-    label,
-    value: expenses
-      .filter((e) => {
-        const d = new Date(`${e.expense_date}T00:00:00`);
-        return d.getFullYear() === year && d.getMonth() === i;
-      })
-      .reduce((s, e) => s + e.amount, 0),
-  }));
-  const yearTotal = monthly.reduce((s, m) => s + m.value, 0);
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daily = Array.from({ length: daysInMonth }, (_, i) => {
-    const day = i + 1;
-    return {
-      label: String(day),
-      value: expenses
-        .filter((e) => {
-          const d = new Date(`${e.expense_date}T00:00:00`);
-          return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
-        })
-        .reduce((s, e) => s + e.amount, 0),
-    };
-  });
-
-  const chartData = chartPeriod === "yearly" ? monthly : daily;
-  const chartInterval = chartPeriod === "yearly" ? 0 : Math.max(0, Math.ceil(chartData.length / 6) - 1);
+  const chartData = spendingTrend.slice(-chartRange);
+  const chartTotal = chartData.reduce((s, m) => s + m.value, 0);
 
   const byCategory = Object.entries(
     expenses.reduce<Record<string, number>>((acc, e) => {
@@ -133,44 +107,44 @@ function DashboardPage() {
   return (
     <AppShell>
       <PageHeader
-        title={`${greeting()}${currentUser ? `, ${currentUser.name.split(" ")[0]}` : ""}`}
+        title={`${greetingText ?? "Welcome"}${currentUser ? `, ${currentUser.name.split(" ")[0]}` : ""}`}
         icon={<Calendar className="h-4 w-4" />}
         subtitle={`${now.toLocaleDateString("en-US", { month: "long" })} ${year}`}
-        actions={
-          <Link to="/expenses/new">
-            <PrimaryButton>
-              <Plus className="h-4 w-4" /> Add Expense
-            </PrimaryButton>
-          </Link>
-        }
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-3">
+      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          icon={<Wallet className="h-6 w-6 text-primary" />}
-          iconClass="bg-primary-soft"
-          accentClass="border-t-primary"
           label="Total Expenses"
           value={formatMoneyShort(total)}
+          tone="primary"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
         />
         <StatCard
-          icon={<Calendar className="h-6 w-6 text-success" />}
-          iconClass="bg-success-soft"
-          accentClass="border-t-success"
           label="This Month"
           value={formatMoneyShort(thisMonth)}
-          delta={`${Math.abs(monthDelta).toFixed(1)}%`}
-          deltaDirection={monthDelta >= 0 ? "up" : "down"}
-          deltaNote="vs Jul 2026"
+          tone="success"
+          trend={spendingTrend}
+          trendValueFormatter={(v) => formatMoneyShort(v)}
+          changePercent={monthDelta}
+          deltaNote={`vs ${new Date(year, month - 1).toLocaleDateString("en-US", { month: "short" })}`}
         />
         <StatCard
-          icon={<FileText className="h-6 w-6 text-violet" />}
-          iconClass="bg-violet-soft"
-          accentClass="border-t-violet"
           label="Transactions"
           value={String(expenses.length)}
+          tone="violet"
+          trend={countTrend}
         />
       </KpiCarousel>
+
+      {teamMembers.length > 0 ? (
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <TeamAvatarStack members={teamMembers} />
+          <p className="text-[13px] text-muted-foreground">
+            {teamMembers.length} {teamMembers.length === 1 ? "person has" : "people have"} logged expenses
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Card className="min-w-0 p-4 sm:p-6">
@@ -178,37 +152,26 @@ function DashboardPage() {
             <div>
               <h2 className="text-[17px] font-semibold text-foreground">Spending Overview</h2>
               <p className="mt-1 text-[13px] text-muted-foreground">
-                Total spending {chartPeriod === "yearly" ? "this year" : "this month"}:{" "}
-                <span className="font-semibold text-foreground">
-                  {formatMoneyShort(chartPeriod === "yearly" ? yearTotal : thisMonth)}
-                </span>
+                Total spending (past {chartRange} months):{" "}
+                <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
               </p>
             </div>
-            <div className="inline-flex shrink-0 items-center rounded-lg border border-border p-0.5 text-[13px]">
-              <button
-                type="button"
-                onClick={() => setChartPeriod("monthly")}
-                className={cn(
-                  "rounded-[7px] px-3 py-1.5 font-medium transition-colors",
-                  chartPeriod === "monthly"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartPeriod("yearly")}
-                className={cn(
-                  "rounded-[7px] px-3 py-1.5 font-medium transition-colors",
-                  chartPeriod === "yearly"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Yearly
-              </button>
+            <div className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-1 text-[13px]">
+              {CHART_RANGES.map((range) => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setChartRange(range)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 font-medium transition-colors",
+                    chartRange === range
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {range}M
+                </button>
+              ))}
             </div>
           </div>
           <div className="mt-6 h-[260px]">
@@ -224,7 +187,7 @@ function DashboardPage() {
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  interval={chartInterval}
+                  interval={0}
                   tick={{ fontSize: 13, fill: "var(--muted-foreground)" }}
                   dy={8}
                 />
@@ -246,11 +209,6 @@ function DashboardPage() {
                     fontSize: 13,
                     boxShadow: "var(--shadow-elevated)",
                   }}
-                  labelFormatter={(label: string) =>
-                    chartPeriod === "yearly"
-                      ? label
-                      : `${now.toLocaleDateString("en-US", { month: "short" })} ${label}`
-                  }
                   formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
                 />
                 <Area
@@ -259,11 +217,7 @@ function DashboardPage() {
                   stroke="var(--primary)"
                   strokeWidth={2}
                   fill="url(#spendFill)"
-                  dot={
-                    chartData.length > 15
-                      ? false
-                      : { r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }
-                  }
+                  dot={{ r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }}
                   activeDot={{ r: 5, fill: "var(--primary)" }}
                 />
               </AreaChart>

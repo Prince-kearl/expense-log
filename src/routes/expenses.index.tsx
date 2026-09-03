@@ -285,7 +285,7 @@ function ExpensesPage() {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
-              className="h-9 rounded-none border border-border bg-card pl-2 text-foreground"
+              className="h-9 pl-3 text-foreground"
             >
               {[10, 20, 50].map((n) => (
                 <option key={n}>{n}</option>
