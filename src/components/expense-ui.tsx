@@ -74,7 +74,7 @@ export function KpiCarousel({
   }
 
   return (
-    <div>
+    <div className="-mt-14 lg:mt-0">
       <div
         ref={scrollerRef}
         onScroll={handleScroll}
@@ -112,11 +112,11 @@ export type StatTrendPoint = { label: string; value: number };
 export type StatTone = "primary" | "success" | "violet" | "warning" | "sky";
 
 const STAT_TONE: Record<StatTone, { from: string; stroke: string; border: string }> = {
-  primary: { from: "from-primary-soft", stroke: "var(--primary)", border: "border-primary/25" },
-  success: { from: "from-success-soft", stroke: "var(--success)", border: "border-success/25" },
-  violet: { from: "from-violet-soft", stroke: "var(--violet)", border: "border-violet/25" },
-  warning: { from: "from-warning-soft", stroke: "var(--warning)", border: "border-warning/25" },
-  sky: { from: "from-sky-soft", stroke: "var(--sky)", border: "border-sky/25" },
+  primary: { from: "from-primary/25", stroke: "var(--primary)", border: "border-primary/25" },
+  success: { from: "from-success/25", stroke: "var(--success)", border: "border-success/25" },
+  violet: { from: "from-violet/25", stroke: "var(--violet)", border: "border-violet/25" },
+  warning: { from: "from-warning/25", stroke: "var(--warning)", border: "border-warning/25" },
+  sky: { from: "from-sky/25", stroke: "var(--sky)", border: "border-sky/25" },
 };
 
 function trendChangePercent(trend: StatTrendPoint[]) {
@@ -265,18 +265,27 @@ export function PageHeader({
   subtitle,
   icon,
   actions,
+  overlapNext = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   icon?: ReactNode;
   actions?: ReactNode;
+  overlapNext?: boolean;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-4 sm:mb-6">
+    <div
+      className={cn(
+        "-mx-4 mb-5 flex flex-wrap items-start justify-between gap-4 bg-primary px-4 pt-4 sm:-mx-6 sm:mb-6 sm:px-6 lg:mx-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0",
+        overlapNext ? "pb-20" : "pb-6",
+      )}
+    >
       <div className="min-w-0">
-        <h1 className="text-[28px] leading-9 font-bold tracking-tight text-foreground sm:text-[32px] sm:leading-10">{title}</h1>
+        <h1 className="text-[28px] leading-9 font-bold tracking-tight text-primary-foreground sm:text-[32px] sm:leading-10 lg:text-foreground">
+          {title}
+        </h1>
         {subtitle ? (
-          <p className="mt-1 flex items-center gap-2 text-[15px] text-muted-foreground">
+          <p className="mt-1 flex items-center gap-2 text-[15px] text-primary-foreground/80 lg:text-muted-foreground">
             {icon}
             {subtitle}
           </p>
@@ -296,7 +305,7 @@ export function PrimaryButton({
     <button
       {...props}
       className={cn(
-        "inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60",
+        "inline-flex h-11 items-center gap-2 rounded-full border border-primary-foreground/40 bg-primary px-5 text-[15px] font-semibold text-primary-foreground shadow-card transition-colors hover:border-primary-foreground/60 hover:bg-primary/90 disabled:opacity-60",
         className,
       )}
     >

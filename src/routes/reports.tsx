@@ -109,6 +109,7 @@ function ReportsPage() {
         title="Reports"
         subtitle="Spending trends and category analysis."
         icon={<BarChart3 className="h-4 w-4" />}
+        overlapNext
         actions={
           <>
             <SelectField
