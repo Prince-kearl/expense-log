@@ -119,7 +119,7 @@ function MemberOverviewPage() {
             overlapNext
           />
 
-          <KpiCarousel gridClassName="sm:grid-cols-3">
+          <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               label="Total Expenses"
               value={formatMoneyShort(totalExpenses)}
