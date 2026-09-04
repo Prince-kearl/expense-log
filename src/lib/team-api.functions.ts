@@ -14,6 +14,8 @@ import {
   getTeamById,
   getTeamMembers,
   getTimeEntriesForUser,
+  getUserFromAccessToken,
+  getUserFromRecoveryCode,
   getUserProfile,
   insertTimeEntry,
   joinTeam,
@@ -23,7 +25,9 @@ import {
   promoteToOwner,
   removeMember,
   requireActiveRole,
+  sendPasswordResetEmail,
   updateTeamSettings,
+  updateUserPassword,
   verifyPassword,
 } from "./supabase.server";
 import { getExpensesForTeam } from "./supabase-expenses.server";
@@ -272,4 +276,62 @@ export const getMemberOverview = createServerFn({ method: "GET" })
       expenses: expenses.filter((e) => e.created_by_user_id === data.userId),
       timeEntries,
     };
+  });
+
+export const changePassword = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      currentPassword: z.string().min(1, "Enter your current password."),
+      newPassword: z.string().min(8, "New password must be at least 8 characters."),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    const verified = await verifyPassword(user.email, data.currentPassword);
+    if (!verified) throw new Error("Current password is incorrect.");
+    await updateUserPassword(user.user_id, data.newPassword);
+  });
+
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .validator(z.object({ email: z.string().trim().toLowerCase().email("Enter a valid email.") }))
+  .handler(async ({ data }) => {
+    const origin = new URL(getRequest().url).origin;
+    await sendPasswordResetEmail(data.email, `${origin}/reset-password`);
+    // Always resolves the same way regardless of whether the email is registered.
+  });
+
+export const confirmPasswordReset = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      newPassword: z.string().min(8, "Password must be at least 8 characters."),
+      accessToken: z.string().min(1).optional(),
+      code: z.string().min(1).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const authUser = data.accessToken
+      ? await getUserFromAccessToken(data.accessToken)
+      : data.code
+        ? await getUserFromRecoveryCode(data.code)
+        : null;
+    if (!authUser) throw new Error("This reset link is invalid or has expired. Request a new one.");
+
+    await updateUserPassword(authUser.id, data.newPassword);
+
+    const profile = await getUserProfile(authUser.id);
+    const team = await getActiveTeamForUser(authUser.id);
+    if (!profile || !team) {
+      return { signedIn: false };
+    }
+
+    const user: AppUser = {
+      user_id: authUser.id,
+      name: profile.name,
+      email: profile.email,
+      team_id: team.team_id,
+      team_name: team.team_name,
+      role: team.role,
+    };
+    await establishSession(user);
+    return { signedIn: true };
   });

@@ -85,6 +85,29 @@ export async function verifyPassword(email: string, password: string) {
   return data.user;
 }
 
+export async function updateUserPassword(userId: string, newPassword: string) {
+  const { error } = await db().auth.admin.updateUserById(userId, { password: newPassword });
+  if (error) fail("Updating password", error);
+}
+
+export async function sendPasswordResetEmail(email: string, redirectTo: string) {
+  // Errors from this call could reveal whether an email is registered, so we
+  // deliberately swallow them — the caller always shows the same generic message.
+  await db().auth.resetPasswordForEmail(email, { redirectTo });
+}
+
+export async function getUserFromAccessToken(accessToken: string) {
+  const { data, error } = await db().auth.getUser(accessToken);
+  if (error || !data.user) return null;
+  return data.user;
+}
+
+export async function getUserFromRecoveryCode(code: string) {
+  const { data, error } = await db().auth.exchangeCodeForSession(code);
+  if (error || !data.user) return null;
+  return data.user;
+}
+
 export async function getUserProfile(userId: string): Promise<TeamUser | null> {
   const { data, error } = await db().from("users").select("id, name, email").eq("id", userId).maybeSingle();
   if (error) fail("Loading account", error);

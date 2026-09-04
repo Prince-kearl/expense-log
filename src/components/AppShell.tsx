@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Bell,
   BarChart3,
@@ -6,6 +7,7 @@ import {
   Clock,
   FileText,
   Home,
+  KeyRound,
   LogOut,
   Monitor,
   Moon,
@@ -16,8 +18,11 @@ import {
   Users,
 } from "lucide-react";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { PrimaryButton, SecondaryButton, fieldClass, labelClass } from "@/components/expense-ui";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCurrentUser, useRequireAuth } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
+import { changePassword } from "@/lib/team-api.functions";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -101,7 +106,99 @@ function ThemeToggle() {
   );
 }
 
+function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const doChangePassword = useServerFn(changePassword);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function handleClose() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setError("");
+    setSuccess(false);
+    onClose();
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await doChangePassword({ data: { currentPassword, newPassword } });
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to change your password.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>Enter your current password and choose a new one.</DialogDescription>
+        </DialogHeader>
+        {success ? (
+          <>
+            <p className="text-[14px] text-success">Your password has been changed.</p>
+            <DialogFooter>
+              <SecondaryButton type="button" onClick={handleClose}>
+                Close
+              </SecondaryButton>
+            </DialogFooter>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className={labelClass}>Current password</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>New password</label>
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className={fieldClass}
+              />
+            </div>
+            {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
+            <DialogFooter>
+              <SecondaryButton type="button" onClick={handleClose}>
+                Cancel
+              </SecondaryButton>
+              <PrimaryButton type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save"}
+              </PrimaryButton>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useCurrentUser> }) {
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
   return (
     <>
       <div className="flex items-center gap-3">
@@ -121,13 +218,24 @@ function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useC
         <ThemeToggle />
       </div>
 
+      <button
+        type="button"
+        onClick={() => setChangePasswordOpen(true)}
+        className="mt-4 flex h-9 w-full items-center gap-3 text-left text-[15px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <KeyRound className="h-5 w-5" />
+        Change password
+      </button>
+
       <a
         href="/api/auth/signout"
-        className="mt-4 flex h-9 items-center gap-3 text-[15px] text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-1 flex h-9 items-center gap-3 text-[15px] text-muted-foreground transition-colors hover:text-foreground"
       >
         <LogOut className="h-5 w-5" />
         Sign out
       </a>
+
+      <ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </>
   );
 }
