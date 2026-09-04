@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyExpensesRouteImport } from './routes/my-expenses'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TimeRouteImport } from './routes/time'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses.index'
@@ -48,6 +49,11 @@ const MyExpensesRoute = MyExpensesRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/reset-password'
     | '/signup'
     | '/time'
     | '/expenses/$expenseId'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/reset-password'
     | '/signup'
     | '/time'
     | '/expenses/$expenseId'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/reset-password'
     | '/signup'
     | '/time'
     | '/expenses/$expenseId'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MyExpensesRoute: typeof MyExpensesRoute
   ReportsRoute: typeof ReportsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   TimeRoute: typeof TimeRoute
   ExpensesExpenseIdRoute: typeof ExpensesExpenseIdRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -341,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MyExpensesRoute: MyExpensesRoute,
   ReportsRoute: ReportsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   TimeRoute: TimeRoute,
   ExpensesExpenseIdRoute: ExpensesExpenseIdRoute,

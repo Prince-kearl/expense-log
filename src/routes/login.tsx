@@ -71,7 +71,12 @@ function LoginPage() {
             />
           </div>
           <div>
-            <label className={labelClass}>Password</label>
+            <div className="flex items-center justify-between">
+              <label className={labelClass}>Password</label>
+              <Link to="/reset-password" className="mb-2 text-[13px] font-medium text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               autoComplete="current-password"
