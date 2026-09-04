@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CategoryPill, KpiCarousel, PageHeader, StatCard } from "@/components/expense-ui";
+import { downloadCsv } from "@/lib/csv";
 import { buildMonthlyTrend, formatDate, formatMoney, formatMoneyShort, initials } from "@/lib/expenses";
 import { getMemberOverview } from "@/lib/team-api.functions";
 
@@ -46,6 +47,34 @@ function MemberOverviewPage() {
 
   const totalExpenses = overview?.expenses.reduce((s, e) => s + e.amount, 0) ?? 0;
   const totalHours = overview?.timeEntries.reduce((s, e) => s + e.hours, 0) ?? 0;
+
+  function exportExpenses() {
+    if (!overview) return;
+    downloadCsv(
+      `${overview.member.name.toLowerCase().replace(/\s+/g, "-")}-expenses.csv`,
+      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund"],
+      overview.expenses.map((e) => [
+        e.expense_id,
+        e.expense_date,
+        e.description,
+        e.category,
+        e.amount,
+        e.currency,
+        e.vendor,
+        e.payment_method,
+        e.account,
+      ]),
+    );
+  }
+
+  function exportTimeEntries() {
+    if (!overview) return;
+    downloadCsv(
+      `${overview.member.name.toLowerCase().replace(/\s+/g, "-")}-time-entries.csv`,
+      ["Date", "Hours", "Note"],
+      overview.timeEntries.map((entry) => [entry.entry_date, entry.hours, entry.note]),
+    );
+  }
 
   return (
     <AppShell>
@@ -115,8 +144,18 @@ function MemberOverviewPage() {
 
           <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <Card className="min-w-0 overflow-hidden">
-              <div className="px-6 py-5">
+              <div className="flex items-center justify-between px-6 py-5">
                 <h2 className="text-[17px] font-semibold text-foreground">Expenses</h2>
+                {overview.expenses.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={exportExpenses}
+                    aria-label="Export expenses"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
               {overview.expenses.length === 0 ? (
                 <p className="px-6 pb-6 text-[14px] text-muted-foreground">No expenses logged yet.</p>
@@ -148,8 +187,18 @@ function MemberOverviewPage() {
             </Card>
 
             <Card className="min-w-0 overflow-hidden">
-              <div className="px-6 py-5">
+              <div className="flex items-center justify-between px-6 py-5">
                 <h2 className="text-[17px] font-semibold text-foreground">Time Logged</h2>
+                {overview.timeEntries.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={exportTimeEntries}
+                    aria-label="Export time entries"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
               {overview.timeEntries.length === 0 ? (
                 <p className="px-6 pb-6 text-[14px] text-muted-foreground">No time logged yet.</p>

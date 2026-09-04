@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, KpiCarousel, PageHeader, SecondaryButton, SelectField, StatCard } from "@/components/expense-ui";
 import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import { downloadCsv } from "@/lib/csv";
 import { buildMonthlyTrend, categoryColor, formatMoney, formatMoneyShort } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -80,27 +81,22 @@ function ReportsPage() {
     .sort((a, b) => b.amount - a.amount);
 
   function exportReport() {
-    const columns = ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund", "Submitted By"];
-    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-    const rows = scoped.map((expense) => [
-      expense.expense_id,
-      expense.expense_date,
-      expense.description,
-      expense.category,
-      expense.amount,
-      expense.currency,
-      expense.vendor,
-      expense.payment_method,
-      expense.account,
-      expense.created_by_name,
-    ].map(escapeCsv).join(","));
-    const file = new Blob([[columns.map(escapeCsv).join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `expense-report-${selectedMonth}${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(
+      `expense-report-${selectedMonth}${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}.csv`,
+      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund", "Submitted By"],
+      scoped.map((expense) => [
+        expense.expense_id,
+        expense.expense_date,
+        expense.description,
+        expense.category,
+        expense.amount,
+        expense.currency,
+        expense.vendor,
+        expense.payment_method,
+        expense.account,
+        expense.created_by_name,
+      ]),
+    );
   }
 
   return (

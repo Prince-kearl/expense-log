@@ -13,6 +13,7 @@ import {
   fieldClass,
 } from "@/components/expense-ui";
 import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import { downloadCsv } from "@/lib/csv";
 import { formatDate, formatMoney } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,25 @@ function ExpensesPage() {
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * pageSize, current * pageSize);
 
+  function exportExpenses() {
+    downloadCsv(
+      `expenses${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}${month === "all" ? "" : `-${month}`}.csv`,
+      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund", "Submitted By"],
+      filtered.map((e) => [
+        e.expense_id,
+        e.expense_date,
+        e.description,
+        e.category,
+        e.amount,
+        e.currency,
+        e.vendor,
+        e.payment_method,
+        e.account,
+        e.created_by_name,
+      ]),
+    );
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -73,7 +93,7 @@ function ExpensesPage() {
         subtitle="View and manage all recorded expenses."
         actions={
           <>
-            <SecondaryButton>
+            <SecondaryButton type="button" onClick={exportExpenses}>
               <Download className="h-4 w-4" /> Export
             </SecondaryButton>
             <Link to="/expenses/new">

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Plus, Receipt, RotateCcw, Search } from "lucide-react";
+import { Download, Plus, Receipt, RotateCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -14,6 +14,7 @@ import {
   fieldClass,
 } from "@/components/expense-ui";
 import { useExpenseConfiguration, useMyExpenses } from "@/lib/app-data";
+import { downloadCsv } from "@/lib/csv";
 import { buildMonthlyTrend, formatDate, formatMoney, formatMoneyShort } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,24 @@ function MyExpensesPage() {
       .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
   }, [mine, query, category]);
 
+  function exportMyExpenses() {
+    downloadCsv(
+      `my-expenses${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}.csv`,
+      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund"],
+      filtered.map((e) => [
+        e.expense_id,
+        e.expense_date,
+        e.description,
+        e.category,
+        e.amount,
+        e.currency,
+        e.vendor,
+        e.payment_method,
+        e.account,
+      ]),
+    );
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -73,11 +92,16 @@ function MyExpensesPage() {
         icon={<Receipt className="h-4 w-4" />}
         overlapNext
         actions={
-          <Link to="/expenses/new">
-            <PrimaryButton>
-              <Plus className="h-4 w-4" /> Add Expense
-            </PrimaryButton>
-          </Link>
+          <>
+            <SecondaryButton type="button" onClick={exportMyExpenses}>
+              <Download className="h-4 w-4" /> Export
+            </SecondaryButton>
+            <Link to="/expenses/new">
+              <PrimaryButton>
+                <Plus className="h-4 w-4" /> Add Expense
+              </PrimaryButton>
+            </Link>
+          </>
         }
       />
 
