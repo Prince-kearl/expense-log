@@ -11,8 +11,10 @@ import {
   findAuthUserByEmail,
   getActiveTeamForUser,
   getInvitationByToken,
+  getLastNotificationsReadAt,
   getTeamById,
   getTeamMembers,
+  getTimeEntriesForTeam,
   getTimeEntriesForUser,
   getUserFromAccessToken,
   getUserFromRecoveryCode,
@@ -22,6 +24,7 @@ import {
   listPendingInvitations,
   markInvitationAccepted,
   markInvitationDeclined,
+  markNotificationsRead,
   promoteToOwner,
   removeMember,
   requireActiveRole,
@@ -335,3 +338,76 @@ export const confirmPasswordReset = createServerFn({ method: "POST" })
     await establishSession(user);
     return { signedIn: true };
   });
+
+export type NotificationItem =
+  | {
+      id: string;
+      type: "expense";
+      actorName: string;
+      timestamp: string;
+      expenseId: string;
+      description: string;
+      amount: number;
+      currency: string;
+    }
+  | { id: string; type: "time"; actorName: string; timestamp: string; hours: number; note: string }
+  | { id: string; type: "join"; actorName: string; timestamp: string; userId: string };
+
+export const getNotifications = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireCurrentUser(getRequest());
+  const [expenses, timeEntries, members, lastReadAt] = await Promise.all([
+    getExpensesForTeam(user.team_id),
+    getTimeEntriesForTeam(user.team_id),
+    getTeamMembers(user.team_id),
+    getLastNotificationsReadAt(user.user_id),
+  ]);
+
+  const items: NotificationItem[] = [];
+
+  for (const e of expenses) {
+    if (e.created_by_user_id === user.user_id) continue;
+    items.push({
+      id: `expense:${e.expense_id}`,
+      type: "expense",
+      actorName: e.created_by_name,
+      timestamp: e.created_at,
+      expenseId: e.expense_id,
+      description: e.description,
+      amount: e.amount,
+      currency: e.currency,
+    });
+  }
+
+  for (const t of timeEntries) {
+    if (t.user_id === user.user_id) continue;
+    items.push({
+      id: `time:${t.id}`,
+      type: "time",
+      actorName: t.user_name,
+      timestamp: t.created_at,
+      hours: t.hours,
+      note: t.note,
+    });
+  }
+
+  for (const m of members) {
+    if (m.user_id === user.user_id || m.status !== "active") continue;
+    items.push({
+      id: `join:${m.membership_id}`,
+      type: "join",
+      actorName: m.name,
+      timestamp: m.joined_at,
+      userId: m.user_id,
+    });
+  }
+
+  items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const unreadCount = items.filter((i) => i.timestamp > lastReadAt).length;
+
+  return { items: items.slice(0, 30), unreadCount };
+});
+
+export const markNotificationsAsRead = createServerFn({ method: "POST" }).handler(async () => {
+  const user = await requireCurrentUser(getRequest());
+  await markNotificationsRead(user.user_id);
+});
