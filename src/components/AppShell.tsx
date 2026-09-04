@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { useCurrentUser } from "@/lib/app-data";
+import { useCurrentUser, useRequireAuth } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -310,7 +310,7 @@ function MobileMenuOverlay({
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState<MenuKey | null>(null);
-  const currentUser = useCurrentUser();
+  const currentUser = useRequireAuth();
 
   function toggleMobile(menu: MenuKey) {
     setMobileMenu((current) => (current === menu ? null : menu));
@@ -322,7 +322,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
 
-      <div className="flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
+      <div className="header-pattern flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
         <img src="/favico.svg" alt="CoinTrail" className="h-11 w-auto brightness-0 invert" />
         <div className="flex items-center gap-2">
           <button

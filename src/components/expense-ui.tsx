@@ -302,7 +302,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "-mx-4 mb-5 flex flex-wrap items-start justify-between gap-4 bg-primary px-4 pt-4 sm:-mx-6 sm:mb-6 sm:px-6 lg:mx-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0",
+        "header-pattern -mx-4 mb-5 flex flex-wrap items-start justify-between gap-4 bg-primary px-4 pt-4 sm:-mx-6 sm:mb-6 sm:px-6 lg:mx-0 lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0",
         overlapNext ? "pb-20" : "pb-6",
       )}
     >
