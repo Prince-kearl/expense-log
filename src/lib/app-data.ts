@@ -3,10 +3,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, getExpenseConfiguration, getExpenses, getMyExpenses } from "./expense-api.functions";
 import { DEFAULT_CATEGORIES, type AppUser, type Expense } from "./expenses";
-import { getCurrentTeam } from "./team-api.functions";
+import { getCurrentTeam, getNotifications, markNotificationsAsRead, type NotificationItem } from "./team-api.functions";
 
 type TeamMember = Awaited<ReturnType<typeof getCurrentTeam>>["members"][number];
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
+const EMPTY_NOTIFICATIONS: NotificationItem[] = [];
+const NOTIFICATIONS_POLL_MS = 60_000;
 
 export type ExpenseConfiguration = {
   categories: { category: string; subcategories: string[] }[];
@@ -53,6 +55,40 @@ export function useCurrentUser() {
     fetchUser({ data: undefined }).then(setUser).catch(() => setUser(null));
   }, [fetchUser]);
   return user;
+}
+
+export function useNotifications() {
+  const fetchNotifications = useServerFn(getNotifications);
+  const doMarkRead = useServerFn(markNotificationsAsRead);
+  const [items, setItems] = useState<NotificationItem[]>(EMPTY_NOTIFICATIONS);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refetch = useCallback(() => {
+    fetchNotifications({ data: undefined })
+      .then((result) => {
+        setItems(result.items);
+        setUnreadCount(result.unreadCount);
+      })
+      .catch(() => {
+        setItems(EMPTY_NOTIFICATIONS);
+        setUnreadCount(0);
+      });
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    refetch();
+    const interval = setInterval(refetch, NOTIFICATIONS_POLL_MS);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  const markAsRead = useCallback(() => {
+    setUnreadCount(0);
+    doMarkRead({ data: undefined }).catch(() => {
+      // next poll will resync if this silently failed
+    });
+  }, [doMarkRead]);
+
+  return { items, unreadCount, markAsRead, refetch };
 }
 
 export function useRequireAuth() {

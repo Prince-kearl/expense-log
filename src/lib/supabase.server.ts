@@ -328,3 +328,42 @@ export async function deleteTimeEntryById(teamId: string, userId: string, entryI
     .eq("user_id", userId);
   if (error) fail("Deleting time entry", error);
 }
+
+export type TeamTimeEntryRow = TimeEntryRow & { user_id: string; user_name: string };
+
+export async function getTimeEntriesForTeam(teamId: string, limit = 30): Promise<TeamTimeEntryRow[]> {
+  const { data, error } = await db()
+    .from("time_entries")
+    .select("id, entry_date, hours, note, created_at, user_id, users(name)")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) fail("Loading team time entries", error);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    entry_date: row.entry_date,
+    hours: row.hours,
+    note: row.note,
+    created_at: row.created_at,
+    user_id: row.user_id,
+    user_name: (row.users as unknown as { name: string } | null)?.name ?? "",
+  }));
+}
+
+export async function getLastNotificationsReadAt(userId: string): Promise<string> {
+  const { data, error } = await db()
+    .from("users")
+    .select("last_notifications_read_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) fail("Loading notification state", error);
+  return data?.last_notifications_read_at ?? new Date(0).toISOString();
+}
+
+export async function markNotificationsRead(userId: string) {
+  const { error } = await db()
+    .from("users")
+    .update({ last_notifications_read_at: new Date().toISOString() })
+    .eq("id", userId);
+  if (error) fail("Updating notification state", error);
+}

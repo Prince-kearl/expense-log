@@ -13,16 +13,18 @@ import {
   Moon,
   MoreHorizontal,
   PlusCircle,
+  Receipt,
   Sun,
   User,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { PrimaryButton, SecondaryButton, fieldClass, labelClass } from "@/components/expense-ui";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useCurrentUser, useRequireAuth } from "@/lib/app-data";
-import { initials } from "@/lib/expenses";
-import { changePassword } from "@/lib/team-api.functions";
+import { useCurrentUser, useNotifications, useRequireAuth } from "@/lib/app-data";
+import { formatMoney, initials } from "@/lib/expenses";
+import { changePassword, type NotificationItem } from "@/lib/team-api.functions";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -240,14 +242,100 @@ function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useC
   );
 }
 
-function NotificationsPanel() {
+function NotificationBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
   return (
-    <div className="py-2 text-center">
-      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-        <Bell className="h-4 w-4 text-muted-foreground" />
+    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
+function timeAgo(iso: string): string {
+  const diffMinutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function NotificationRow({ item }: { item: NotificationItem }) {
+  const icon =
+    item.type === "expense" ? (
+      <Receipt className="h-4 w-4" />
+    ) : item.type === "time" ? (
+      <Clock className="h-4 w-4" />
+    ) : (
+      <UserPlus className="h-4 w-4" />
+    );
+
+  const description =
+    item.type === "expense" ? (
+      <>
+        logged <span className="font-medium text-foreground">{formatMoney(item.amount, item.currency)}</span> for{" "}
+        {item.description}
+      </>
+    ) : item.type === "time" ? (
+      <>
+        logged <span className="font-medium text-foreground">{item.hours.toFixed(1)}h</span>
+        {item.note ? ` — ${item.note}` : ""}
+      </>
+    ) : (
+      "joined the team"
+    );
+
+  const content = (
+    <div className="flex items-start gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {icon}
       </span>
-      <p className="mt-3 text-[14px] font-medium text-foreground">You're all caught up</p>
-      <p className="mt-1 text-[13px] text-muted-foreground">No new notifications yet.</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] leading-5 text-foreground">
+          <span className="font-semibold">{item.actorName}</span> {description}
+        </p>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">{timeAgo(item.timestamp)}</p>
+      </div>
+    </div>
+  );
+
+  if (item.type === "expense") {
+    return (
+      <Link to="/expenses/$expenseId" params={{ expenseId: item.expenseId }}>
+        {content}
+      </Link>
+    );
+  }
+  if (item.type === "join") {
+    return (
+      <Link to="/team/$userId" params={{ userId: item.userId }}>
+        {content}
+      </Link>
+    );
+  }
+  return content;
+}
+
+function NotificationsPanel({ items }: { items: NotificationItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="py-2 text-center">
+        <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+          <Bell className="h-4 w-4 text-muted-foreground" />
+        </span>
+        <p className="mt-3 text-[14px] font-medium text-foreground">You're all caught up</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">No new notifications yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-[360px] space-y-1 overflow-y-auto">
+      {items.map((item) => (
+        <NotificationRow key={item.id} item={item} />
+      ))}
     </div>
   );
 }
@@ -255,10 +343,15 @@ function NotificationsPanel() {
 function DesktopNav() {
   const isActive = useActiveNav();
   const currentUser = useCurrentUser();
+  const notifications = useNotifications();
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
   function toggle(menu: MenuKey) {
-    setOpenMenu((current) => (current === menu ? null : menu));
+    setOpenMenu((current) => {
+      const next = current === menu ? null : menu;
+      if (next === "notifications") notifications.markAsRead();
+      return next;
+    });
   }
 
   return (
@@ -299,13 +392,14 @@ function DesktopNav() {
             type="button"
             onClick={() => toggle("notifications")}
             aria-label="Notifications"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-primary-foreground/70 transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-primary-foreground/70 transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground"
           >
             <Bell className="h-4 w-4" />
+            <NotificationBadge count={notifications.unreadCount} />
           </button>
           {openMenu === "notifications" ? (
-            <div className="absolute top-12 right-0 w-72 rounded-2xl border border-border bg-card p-4 text-left shadow-card">
-              <NotificationsPanel />
+            <div className="absolute top-12 right-0 w-80 rounded-2xl border border-border bg-card p-4 text-left shadow-card">
+              <NotificationsPanel items={notifications.items} />
             </div>
           ) : null}
         </div>
@@ -399,10 +493,12 @@ function MobileMenuOverlay({
   open,
   onClose,
   currentUser,
+  notificationItems,
 }: {
   open: MenuKey | null;
   onClose: () => void;
   currentUser: ReturnType<typeof useCurrentUser>;
+  notificationItems: NotificationItem[];
 }) {
   if (!open) return null;
 
@@ -410,7 +506,11 @@ function MobileMenuOverlay({
     <div className="fixed inset-0 z-50 lg:hidden">
       <div className="absolute inset-0 bg-foreground/30" onClick={onClose} aria-hidden />
       <div className="absolute top-16 right-4 w-72 rounded-2xl border border-border bg-card p-4 shadow-card">
-        {open === "account" ? <AccountMenuPanel currentUser={currentUser} /> : <NotificationsPanel />}
+        {open === "account" ? (
+          <AccountMenuPanel currentUser={currentUser} />
+        ) : (
+          <NotificationsPanel items={notificationItems} />
+        )}
       </div>
     </div>
   );
@@ -419,16 +519,26 @@ function MobileMenuOverlay({
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState<MenuKey | null>(null);
   const currentUser = useRequireAuth();
+  const notifications = useNotifications();
 
   function toggleMobile(menu: MenuKey) {
-    setMobileMenu((current) => (current === menu ? null : menu));
+    setMobileMenu((current) => {
+      const next = current === menu ? null : menu;
+      if (next === "notifications") notifications.markAsRead();
+      return next;
+    });
   }
 
   return (
     <div className="min-h-screen bg-page">
       <DesktopNav />
 
-      <MobileMenuOverlay open={mobileMenu} onClose={() => setMobileMenu(null)} currentUser={currentUser} />
+      <MobileMenuOverlay
+        open={mobileMenu}
+        onClose={() => setMobileMenu(null)}
+        currentUser={currentUser}
+        notificationItems={notifications.items}
+      />
 
       <div className="header-pattern flex items-center justify-between gap-2 bg-primary p-4 lg:hidden">
         <img src="/favico.svg" alt="CoinTrail" className="h-11 w-auto brightness-0 invert" />
@@ -436,9 +546,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             onClick={() => toggleMobile("notifications")}
             aria-label="Notifications"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-card"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-card"
           >
             <Bell className="h-4 w-4" />
+            <NotificationBadge count={notifications.unreadCount} />
           </button>
           <button
             onClick={() => toggleMobile("account")}
