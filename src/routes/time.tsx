@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { Card, KpiCarousel, PageHeader, PrimaryButton, SecondaryButton, StatCard, fieldClass, labelClass } from "@/components/expense-ui";
 import { downloadCsv } from "@/lib/csv";
 import { deleteTimeEntry, getMyTimeEntries, logTime } from "@/lib/team-api.functions";
-import { formatDate } from "@/lib/expenses";
+import { formatDate, formatHours } from "@/lib/expenses";
 
 export const Route = createFileRoute("/time")({
   head: () => ({
@@ -46,7 +46,8 @@ function TimeTrackingPage() {
 
   const [entries, setEntries] = useState<TimeEntryRow[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [hours, setHours] = useState("");
+  const [hoursPart, setHoursPart] = useState("");
+  const [minutesPart, setMinutesPart] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,13 +83,19 @@ function TimeTrackingPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const parsedHours = Number(hours);
+    const h = hoursPart.trim() === "" ? 0 : Number(hoursPart);
+    const m = minutesPart.trim() === "" ? 0 : Number(minutesPart);
     if (!date) {
       setError("Pick a date.");
       return;
     }
-    if (!Number.isFinite(parsedHours) || parsedHours <= 0) {
-      setError("Enter a number of hours greater than zero.");
+    if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || m < 0) {
+      setError("Enter a valid duration.");
+      return;
+    }
+    const parsedHours = h + m / 60;
+    if (parsedHours <= 0) {
+      setError("Enter a duration greater than zero.");
       return;
     }
     if (!note.trim()) {
@@ -100,7 +107,8 @@ function TimeTrackingPage() {
     try {
       const created = await doLogTime({ data: { date, hours: parsedHours, note: note.trim() } });
       setEntries((current) => [created, ...current]);
-      setHours("");
+      setHoursPart("");
+      setMinutesPart("");
       setNote("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to log time.");
@@ -141,14 +149,14 @@ function TimeTrackingPage() {
       />
 
       <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Total Hours" value={totalHours.toFixed(1)} tone="primary" trend={hoursTrend} />
-        <StatCard label="This Month" value={thisMonthHours.toFixed(1)} tone="success" trend={hoursTrend} />
+        <StatCard label="Total Hours" value={formatHours(totalHours)} tone="primary" trend={hoursTrend} trendValueFormatter={(v) => formatHours(v)} />
+        <StatCard label="This Month" value={formatHours(thisMonthHours)} tone="success" trend={hoursTrend} trendValueFormatter={(v) => formatHours(v)} />
         <StatCard label="Entries" value={String(entries.length)} tone="violet" trend={entriesTrend} />
       </KpiCarousel>
 
       <Card className="my-5 p-5">
         <h2 className="text-[17px] font-semibold text-foreground">Log time</h2>
-        <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-[160px_120px_1fr_auto] sm:items-end">
+        <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-[160px_90px_90px_1fr_auto] sm:items-end">
           <div>
             <label className={labelClass}>Date</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={fieldClass} />
@@ -158,10 +166,23 @@ function TimeTrackingPage() {
             <input
               type="number"
               min="0"
-              step="0.25"
-              placeholder="0.0"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
+              step="1"
+              placeholder="0"
+              value={hoursPart}
+              onChange={(e) => setHoursPart(e.target.value)}
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Minutes</label>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              step="5"
+              placeholder="0"
+              value={minutesPart}
+              onChange={(e) => setMinutesPart(e.target.value)}
               className={fieldClass}
             />
           </div>
@@ -191,7 +212,7 @@ function TimeTrackingPage() {
                 <p className="mt-1 text-[13px] text-muted-foreground">{formatDate(entry.entry_date)}</p>
               </div>
               <p className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-foreground">
-                {entry.hours.toFixed(1)}h
+                {formatHours(entry.hours)}
               </p>
               <button
                 type="button"
@@ -228,7 +249,7 @@ function TimeTrackingPage() {
                   </td>
                   <td className="px-6 py-4 text-[15px] text-foreground">{entry.note}</td>
                   <td className="px-6 py-4 text-[15px] whitespace-nowrap text-foreground">
-                    {entry.hours.toFixed(1)}h
+                    {formatHours(entry.hours)}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button

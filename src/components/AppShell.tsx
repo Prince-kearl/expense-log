@@ -23,7 +23,7 @@ import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { PrimaryButton, SecondaryButton, fieldClass, labelClass } from "@/components/expense-ui";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCurrentUser, useNotifications, useRequireAuth } from "@/lib/app-data";
-import { formatMoney, initials } from "@/lib/expenses";
+import { formatHours, formatMoney, initials } from "@/lib/expenses";
 import { changePassword, type NotificationItem } from "@/lib/team-api.functions";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -280,7 +280,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
       </>
     ) : item.type === "time" ? (
       <>
-        logged <span className="font-medium text-foreground">{item.hours.toFixed(1)}h</span>
+        logged <span className="font-medium text-foreground">{formatHours(item.hours)}</span>
         {item.note ? ` — ${item.note}` : ""}
       </>
     ) : (

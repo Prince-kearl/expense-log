@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CategoryPill, KpiCarousel, PageHeader, StatCard } from "@/components/expense-ui";
 import { downloadCsv } from "@/lib/csv";
-import { buildMonthlyTrend, formatDate, formatMoney, formatMoneyShort, initials } from "@/lib/expenses";
+import { buildMonthlyTrend, formatDate, formatHours, formatMoney, formatMoneyShort, initials } from "@/lib/expenses";
 import { getMemberOverview } from "@/lib/team-api.functions";
 
 function buildMonthlyHoursTrend(timeEntries: Overview["timeEntries"], monthsBack: number) {
@@ -135,10 +135,10 @@ function MemberOverviewPage() {
             />
             <StatCard
               label="Hours Logged"
-              value={totalHours.toFixed(1)}
+              value={formatHours(totalHours)}
               tone="success"
               trend={buildMonthlyHoursTrend(overview.timeEntries, 12)}
-              trendValueFormatter={(v) => `${v.toFixed(1)}h`}
+              trendValueFormatter={(v) => formatHours(v)}
             />
           </KpiCarousel>
 
@@ -213,7 +213,7 @@ function MemberOverviewPage() {
                           <p className="mt-1 text-[12px] text-muted-foreground">{formatDate(entry.entry_date)}</p>
                         </div>
                         <p className="shrink-0 text-[14px] font-semibold whitespace-nowrap text-foreground">
-                          {entry.hours.toFixed(1)}h
+                          {formatHours(entry.hours)}
                         </p>
                       </div>
                     ))}
