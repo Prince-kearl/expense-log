@@ -1,20 +1,18 @@
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, getExpenseConfiguration, getExpenses, getMyExpenses } from "./expense-api.functions";
 import { DEFAULT_CATEGORIES, type AppUser, type Expense } from "./expenses";
+import { getCurrentTeam } from "./team-api.functions";
+
+type TeamMember = Awaited<ReturnType<typeof getCurrentTeam>>["members"][number];
+const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
 export type ExpenseConfiguration = {
   categories: { category: string; subcategories: string[] }[];
-  paymentMethods: string[];
-  accounts: string[];
-  currencies: string[];
 };
 
 const EMPTY_CONFIGURATION: ExpenseConfiguration = {
   categories: DEFAULT_CATEGORIES,
-  paymentMethods: [],
-  accounts: [],
-  currencies: [],
 };
 const EMPTY_EXPENSES: Expense[] = [];
 
@@ -36,6 +34,17 @@ export function useMyExpenses() {
   return expenses;
 }
 
+export function useTeamMembers() {
+  const fetchTeam = useServerFn(getCurrentTeam);
+  const [members, setMembers] = useState<TeamMember[]>(EMPTY_TEAM_MEMBERS);
+  useEffect(() => {
+    fetchTeam({ data: undefined })
+      .then((result) => setMembers(result.members.filter((member) => member.status === "active")))
+      .catch(() => setMembers(EMPTY_TEAM_MEMBERS));
+  }, [fetchTeam]);
+  return members;
+}
+
 export function useCurrentUser() {
   const fetchUser = useServerFn(getCurrentUser);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -54,10 +63,14 @@ function withDefaultCategories(configuration: ExpenseConfiguration): ExpenseConf
 export function useExpenseConfiguration() {
   const fetchConfiguration = useServerFn(getExpenseConfiguration);
   const [configuration, setConfiguration] = useState<ExpenseConfiguration>(EMPTY_CONFIGURATION);
-  useEffect(() => {
+
+  const refetch = useCallback(() => {
     fetchConfiguration({ data: undefined })
       .then((result) => setConfiguration(withDefaultCategories(result)))
       .catch(() => setConfiguration(EMPTY_CONFIGURATION));
   }, [fetchConfiguration]);
-  return configuration;
+
+  useEffect(refetch, [refetch]);
+
+  return { ...configuration, refetch };
 }

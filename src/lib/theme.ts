@@ -14,9 +14,9 @@ function applyTheme(theme: Theme) {
 }
 
 function readStoredTheme(): Theme {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "light";
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
 }
 
 export function useTheme() {

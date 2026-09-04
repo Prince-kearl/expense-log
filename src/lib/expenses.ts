@@ -1,3 +1,9 @@
+export type ExpenseReceipt = {
+  path: string;
+  filename: string;
+  mime_type: string;
+};
+
 export type Expense = {
   expense_id: string;
   expense_date: string; // ISO yyyy-mm-dd
@@ -6,15 +12,11 @@ export type Expense = {
   subcategory: string;
   amount: number;
   currency: string;
-  department: string;
   vendor: string;
   payment_method: string;
   account: string;
   notes: string;
-  receipt_file_id: string | null;
-  receipt_url: string | null;
-  receipt_filename: string | null;
-  receipt_mime_type: string | null;
+  receipts: ExpenseReceipt[];
   created_by_user_id: string;
   created_by_name: string;
   created_by_email: string;
@@ -28,24 +30,46 @@ export type AppUser = {
   user_id: string;
   name: string;
   email: string;
-  profile_photo_url: string | null;
+  team_id: string;
+  team_name: string;
+  role: "owner" | "member";
 };
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  Food: "var(--primary)",
-  Transport: "var(--success)",
-  Marketing: "var(--violet)",
-  Operations: "var(--warning)",
-  "Office Supplies": "var(--teal)",
-};
+const CATEGORY_TONES: { color: string; badge: string }[] = [
+  { color: "var(--primary)", badge: "bg-primary-soft text-primary" },
+  { color: "var(--success)", badge: "bg-success-soft text-success" },
+  { color: "var(--violet)", badge: "bg-violet-soft text-violet" },
+  { color: "var(--warning)", badge: "bg-warning-soft text-warning" },
+  { color: "var(--sky)", badge: "bg-sky-soft text-sky" },
+];
 
-export const CATEGORY_BADGE: Record<string, string> = {
-  Food: "bg-primary-soft text-primary",
-  Transport: "bg-success-soft text-success",
-  Marketing: "bg-violet-soft text-violet",
-  Operations: "bg-warning-soft text-warning",
-  "Office Supplies": "bg-sky-soft text-sky",
-};
+// Deterministically assigns each category name a color from a fixed palette
+// (rather than a hardcoded name lookup) so any category — including ones
+// teams create themselves — gets a consistent color everywhere. The default
+// categories each get their own reserved slot so they're never the same
+// color as each other; custom categories hash into the remaining slots.
+function categoryTone(category: string) {
+  const defaultIndex = DEFAULT_CATEGORIES.findIndex((c) => c.category === category);
+  if (defaultIndex !== -1) {
+    return CATEGORY_TONES[defaultIndex % CATEGORY_TONES.length]!;
+  }
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) {
+    hash = (hash * 31 + category.charCodeAt(i)) | 0;
+  }
+  const reserved = Math.min(DEFAULT_CATEGORIES.length, CATEGORY_TONES.length);
+  const remaining = CATEGORY_TONES.length - reserved;
+  const index = remaining > 0 ? reserved + (Math.abs(hash) % remaining) : Math.abs(hash) % CATEGORY_TONES.length;
+  return CATEGORY_TONES[index]!;
+}
+
+export function categoryColor(category: string): string {
+  return categoryTone(category).color;
+}
+
+export function categoryBadgeClass(category: string): string {
+  return categoryTone(category).badge;
+}
 
 export const DEFAULT_CATEGORIES: { category: string; subcategories: string[] }[] = [
   {

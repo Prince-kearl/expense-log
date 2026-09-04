@@ -14,13 +14,16 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyExpensesRouteImport } from './routes/my-expenses'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TimeRouteImport } from './routes/time'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses.index'
 import { Route as ExpensesExpenseIdRouteImport } from './routes/expenses.$expenseId'
 import { Route as ExpensesNewRouteImport } from './routes/expenses.new'
-import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as TeamIndexRouteImport } from './routes/team.index'
+import { Route as TeamUserIdRouteImport } from './routes/team.$userId'
 import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
-import { Route as ApiReceiptsFileIdRouteImport } from './routes/api/receipts/$fileId'
+import { Route as ApiReceiptsExpenseIdRouteImport } from './routes/api/receipts/$expenseId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,6 +50,11 @@ const ReportsRoute = ReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TimeRoute = TimeRouteImport.update({
   id: '/time',
   path: '/time',
@@ -67,9 +75,19 @@ const ExpensesNewRoute = ExpensesNewRouteImport.update({
   path: '/expenses/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
-  id: '/api/auth/google',
-  path: '/api/auth/google',
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamIndexRoute = TeamIndexRouteImport.update({
+  id: '/team/',
+  path: '/team/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamUserIdRoute = TeamUserIdRouteImport.update({
+  id: '/team/$userId',
+  path: '/team/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSignoutRoute = ApiAuthSignoutRouteImport.update({
@@ -77,9 +95,9 @@ const ApiAuthSignoutRoute = ApiAuthSignoutRouteImport.update({
   path: '/api/auth/signout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiReceiptsFileIdRoute = ApiReceiptsFileIdRouteImport.update({
-  id: '/api/receipts/$fileId',
-  path: '/api/receipts/$fileId',
+const ApiReceiptsExpenseIdRoute = ApiReceiptsExpenseIdRouteImport.update({
+  id: '/api/receipts/$expenseId',
+  path: '/api/receipts/$expenseId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -89,13 +107,16 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/team/$userId': typeof TeamUserIdRoute
   '/expenses/': typeof ExpensesIndexRoute
-  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/team/': typeof TeamIndexRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
-  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
+  '/api/receipts/$expenseId': typeof ApiReceiptsExpenseIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -103,13 +124,16 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/team/$userId': typeof TeamUserIdRoute
   '/expenses': typeof ExpensesIndexRoute
-  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/team': typeof TeamIndexRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
-  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
+  '/api/receipts/$expenseId': typeof ApiReceiptsExpenseIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,13 +142,16 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
   '/reports': typeof ReportsRoute
+  '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/team/$userId': typeof TeamUserIdRoute
   '/expenses/': typeof ExpensesIndexRoute
-  '/api/auth/google': typeof ApiAuthGoogleRoute
+  '/team/': typeof TeamIndexRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
-  '/api/receipts/$fileId': typeof ApiReceiptsFileIdRoute
+  '/api/receipts/$expenseId': typeof ApiReceiptsExpenseIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -134,13 +161,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/signup'
     | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
+    | '/invite/$token'
+    | '/team/$userId'
     | '/expenses/'
-    | '/api/auth/google'
+    | '/team/'
     | '/api/auth/signout'
-    | '/api/receipts/$fileId'
+    | '/api/receipts/$expenseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -148,13 +178,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/signup'
     | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
+    | '/invite/$token'
+    | '/team/$userId'
     | '/expenses'
-    | '/api/auth/google'
+    | '/team'
     | '/api/auth/signout'
-    | '/api/receipts/$fileId'
+    | '/api/receipts/$expenseId'
   id:
     | '__root__'
     | '/'
@@ -162,13 +195,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-expenses'
     | '/reports'
+    | '/signup'
     | '/time'
     | '/expenses/$expenseId'
     | '/expenses/new'
+    | '/invite/$token'
+    | '/team/$userId'
     | '/expenses/'
-    | '/api/auth/google'
+    | '/team/'
     | '/api/auth/signout'
-    | '/api/receipts/$fileId'
+    | '/api/receipts/$expenseId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -177,13 +213,16 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MyExpensesRoute: typeof MyExpensesRoute
   ReportsRoute: typeof ReportsRoute
+  SignupRoute: typeof SignupRoute
   TimeRoute: typeof TimeRoute
   ExpensesExpenseIdRoute: typeof ExpensesExpenseIdRoute
   ExpensesNewRoute: typeof ExpensesNewRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  TeamUserIdRoute: typeof TeamUserIdRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
-  ApiAuthGoogleRoute: typeof ApiAuthGoogleRoute
+  TeamIndexRoute: typeof TeamIndexRoute
   ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
-  ApiReceiptsFileIdRoute: typeof ApiReceiptsFileIdRoute
+  ApiReceiptsExpenseIdRoute: typeof ApiReceiptsExpenseIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -223,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/time': {
       id: '/time'
       path: '/time'
@@ -251,11 +297,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpensesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/google': {
-      id: '/api/auth/google'
-      path: '/api/auth/google'
-      fullPath: '/api/auth/google'
-      preLoaderRoute: typeof ApiAuthGoogleRouteImport
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/': {
+      id: '/team/'
+      path: '/team'
+      fullPath: '/team/'
+      preLoaderRoute: typeof TeamIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/$userId': {
+      id: '/team/$userId'
+      path: '/team/$userId'
+      fullPath: '/team/$userId'
+      preLoaderRoute: typeof TeamUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/signout': {
@@ -265,11 +325,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSignoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/receipts/$fileId': {
-      id: '/api/receipts/$fileId'
-      path: '/api/receipts/$fileId'
-      fullPath: '/api/receipts/$fileId'
-      preLoaderRoute: typeof ApiReceiptsFileIdRouteImport
+    '/api/receipts/$expenseId': {
+      id: '/api/receipts/$expenseId'
+      path: '/api/receipts/$expenseId'
+      fullPath: '/api/receipts/$expenseId'
+      preLoaderRoute: typeof ApiReceiptsExpenseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -281,13 +341,16 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MyExpensesRoute: MyExpensesRoute,
   ReportsRoute: ReportsRoute,
+  SignupRoute: SignupRoute,
   TimeRoute: TimeRoute,
   ExpensesExpenseIdRoute: ExpensesExpenseIdRoute,
   ExpensesNewRoute: ExpensesNewRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  TeamUserIdRoute: TeamUserIdRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
-  ApiAuthGoogleRoute: ApiAuthGoogleRoute,
+  TeamIndexRoute: TeamIndexRoute,
   ApiAuthSignoutRoute: ApiAuthSignoutRoute,
-  ApiReceiptsFileIdRoute: ApiReceiptsFileIdRoute,
+  ApiReceiptsExpenseIdRoute: ApiReceiptsExpenseIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

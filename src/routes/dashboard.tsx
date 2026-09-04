@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Area,
   AreaChart,
@@ -22,10 +22,10 @@ import {
   TeamAvatarStack,
   UserCell,
 } from "@/components/expense-ui";
-import { useCurrentUser, useExpenses } from "@/lib/app-data";
+import { useCurrentUser, useExpenses, useTeamMembers } from "@/lib/app-data";
 import {
-  CATEGORY_COLORS,
   buildMonthlyTrend,
+  categoryColor,
   formatDate,
   formatMoney,
   formatMoneyShort,
@@ -54,8 +54,10 @@ export const Route = createFileRoute("/dashboard")({
 const CHART_RANGES = [3, 6, 12] as const;
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const expenses = useExpenses();
   const currentUser = useCurrentUser();
+  const teamMembers = useTeamMembers();
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -64,12 +66,6 @@ function DashboardPage() {
   useEffect(() => {
     setGreetingText(greeting());
   }, []);
-
-  const teamMembers = Array.from(
-    new Map(
-      expenses.map((e) => [e.created_by_user_id, { name: e.created_by_name, email: e.created_by_email }]),
-    ).values(),
-  );
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const thisMonth = expenses
@@ -139,24 +135,15 @@ function DashboardPage() {
       </KpiCarousel>
 
       {teamMembers.length > 0 ? (
-        <div className="mt-5 flex flex-wrap items-center gap-3">
+        <div className="mt-5 flex justify-center">
           <TeamAvatarStack members={teamMembers} />
-          <p className="text-[13px] text-muted-foreground">
-            {teamMembers.length} {teamMembers.length === 1 ? "person has" : "people have"} logged expenses
-          </p>
         </div>
       ) : null}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Card className="min-w-0 p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[17px] font-semibold text-foreground">Spending Overview</h2>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                Total spending (past {chartRange} months):{" "}
-                <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[17px] font-semibold text-foreground">Spending Overview</h2>
             <div className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-1 text-[13px]">
               {CHART_RANGES.map((range) => (
                 <button
@@ -175,6 +162,10 @@ function DashboardPage() {
               ))}
             </div>
           </div>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Total spending (past {chartRange} months):{" "}
+            <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
+          </p>
           <div className="mt-6 h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -188,7 +179,7 @@ function DashboardPage() {
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  interval={0}
+                  interval={chartData.length > 6 ? 1 : 0}
                   tick={{ fontSize: 13, fill: "var(--muted-foreground)" }}
                   dy={8}
                 />
@@ -213,13 +204,13 @@ function DashboardPage() {
                   formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
                 />
                 <Area
-                  type="linear"
+                  type="monotone"
                   dataKey="value"
                   stroke="var(--primary)"
                   strokeWidth={2}
                   fill="url(#spendFill)"
-                  dot={{ r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }}
-                  activeDot={{ r: 5, fill: "var(--primary)" }}
+                  dot={false}
+                  activeDot={{ r: 5, fill: "var(--primary)", stroke: "var(--background)", strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -244,7 +235,7 @@ function DashboardPage() {
                     {byCategory.map((entry) => (
                       <Cell
                         key={entry.name}
-                        fill={CATEGORY_COLORS[entry.name] ?? "var(--muted-foreground)"}
+                        fill={categoryColor(entry.name)}
                       />
                     ))}
                   </Pie>
@@ -264,7 +255,7 @@ function DashboardPage() {
                 <div key={c.name} className="flex items-center gap-3 text-[14px]">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)" }}
+                    style={{ backgroundColor: categoryColor(c.name) }}
                   />
                   <span className="flex-1 truncate text-foreground">{c.name}</span>
                   <span className="text-foreground">{formatMoneyShort(c.value)}</span>
@@ -304,22 +295,24 @@ function DashboardPage() {
 
           <div className="mt-2 divide-y divide-border/70 sm:hidden">
             {recent.map((e) => (
-              <div key={e.expense_id} className="flex items-center gap-3 py-3.5">
+              <div
+                key={e.expense_id}
+                onClick={() => navigate({ to: "/expenses/$expenseId", params: { expenseId: e.expense_id } })}
+                className="flex cursor-pointer items-start gap-3 py-4 transition-colors hover:bg-muted/60"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
                     <CategoryPill category={e.category} />
                   </div>
+                  <div className="mt-2.5">
+                    <UserCell name={e.created_by_name} size="sm" />
+                  </div>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[15px] font-semibold whitespace-nowrap text-foreground">
-                    {formatMoney(e.amount, e.currency)}
-                  </p>
-                  <p className="mt-1 text-[12px] text-muted-foreground">
-                    {(e.created_by_name.split(" ")[0] ?? e.created_by_name)}
-                  </p>
-                </div>
+                <p className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-foreground">
+                  {formatMoney(e.amount, e.currency)}
+                </p>
               </div>
             ))}
           </div>
