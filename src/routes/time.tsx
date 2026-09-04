@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, KpiCarousel, PageHeader, PrimaryButton, SecondaryButton, StatCard, fieldClass, labelClass } from "@/components/expense-ui";
 import { downloadCsv } from "@/lib/csv";
+import { useTeamSettings } from "@/lib/app-data";
 import { deleteTimeEntry, getMyTimeEntries, logTime } from "@/lib/team-api.functions";
-import { formatDate, formatHours } from "@/lib/expenses";
+import { formatDate, formatHours, formatMoney, formatMoneyShort } from "@/lib/expenses";
 
 export const Route = createFileRoute("/time")({
   head: () => ({
@@ -43,6 +44,7 @@ function TimeTrackingPage() {
   const fetchEntries = useServerFn(getMyTimeEntries);
   const doLogTime = useServerFn(logTime);
   const doDeleteEntry = useServerFn(deleteTimeEntry);
+  const { standardHourlyRate, currency } = useTeamSettings();
 
   const [entries, setEntries] = useState<TimeEntryRow[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -65,6 +67,9 @@ function TimeTrackingPage() {
     })
     .reduce((s, e) => s + e.hours, 0);
   const hoursTrend = buildMonthlyHoursTrend(entries, 12);
+  const hasHourlyRate = standardHourlyRate !== null && standardHourlyRate > 0;
+  const totalEarnings = totalHours * (standardHourlyRate ?? 0);
+  const earningsTrend = hoursTrend.map((p) => ({ ...p, value: p.value * (standardHourlyRate ?? 0) }));
   const entriesTrend = (() => {
     const points = buildMonthlyHoursTrend(entries, 12);
     return points.map((p, i) => ({
@@ -148,10 +153,19 @@ function TimeTrackingPage() {
         }
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
+      <KpiCarousel gridClassName={hasHourlyRate ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3"}>
         <StatCard label="Total Hours" value={formatHours(totalHours)} tone="primary" trend={hoursTrend} trendValueFormatter={(v) => formatHours(v)} />
         <StatCard label="This Month" value={formatHours(thisMonthHours)} tone="success" trend={hoursTrend} trendValueFormatter={(v) => formatHours(v)} />
         <StatCard label="Entries" value={String(entries.length)} tone="violet" trend={entriesTrend} />
+        {hasHourlyRate ? (
+          <StatCard
+            label="Earnings"
+            value={formatMoneyShort(totalEarnings, currency)}
+            tone="warning"
+            trend={earningsTrend}
+            trendValueFormatter={(v) => formatMoney(v, currency)}
+          />
+        ) : null}
       </KpiCarousel>
 
       <Card className="my-5 p-5">

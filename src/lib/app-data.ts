@@ -48,6 +48,20 @@ export function useTeamMembers() {
   return members;
 }
 
+export type TeamSettings = { standardHourlyRate: number | null; currency: string };
+const EMPTY_TEAM_SETTINGS: TeamSettings = { standardHourlyRate: null, currency: "GHS" };
+
+export function useTeamSettings() {
+  const fetchTeam = useServerFn(getCurrentTeam);
+  const [settings, setSettings] = useState<TeamSettings>(EMPTY_TEAM_SETTINGS);
+  useEffect(() => {
+    fetchTeam({ data: undefined })
+      .then((result) => setSettings({ standardHourlyRate: result.team.standard_hourly_rate, currency: result.team.currency }))
+      .catch(() => setSettings(EMPTY_TEAM_SETTINGS));
+  }, [fetchTeam]);
+  return settings;
+}
+
 export function useCurrentUser() {
   const fetchUser = useServerFn(getCurrentUser);
   const [user, setUser] = useState<AppUser | null>(null);
