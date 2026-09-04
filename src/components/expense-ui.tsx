@@ -200,13 +200,13 @@ export function StatCard({
             </span>
           </div>
 
-          <p className="mt-3 truncate text-[22px] leading-7 font-bold tracking-tight text-foreground sm:text-[19px] xl:text-[26px] xl:leading-8">
+          <p className="mt-3 truncate text-[22px] leading-7 font-bold tracking-tight text-foreground sm:text-[19px] 2xl:text-[26px] 2xl:leading-8">
             {value}
           </p>
           {deltaNote ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{deltaNote}</p> : null}
         </div>
 
-        <div className="relative h-14 w-16 shrink-0 pt-5 sm:h-12 sm:w-14 sm:pt-4 xl:h-20 xl:w-28 xl:pt-6">
+        <div className="relative h-14 w-16 shrink-0 pt-5 sm:h-12 sm:w-14 sm:pt-4 2xl:h-20 2xl:w-28 2xl:pt-6">
           {last ? (
             <div className="absolute top-0 right-0 z-10 border border-border bg-card px-2 py-1 text-left whitespace-nowrap shadow-card">
               <p className="text-[11px] font-semibold text-foreground">{trendValueFormatter(last.value)}</p>
