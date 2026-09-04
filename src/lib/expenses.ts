@@ -103,7 +103,10 @@ export function formatMoney(amount: number, currency = "GHS") {
 }
 
 export function formatMoneyShort(amount: number, currency = "GHS") {
-  return `${currency} ${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return `${currency} ${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export function formatDate(iso: string) {

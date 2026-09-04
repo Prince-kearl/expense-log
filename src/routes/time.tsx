@@ -140,7 +140,7 @@ function TimeTrackingPage() {
         }
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-3">
+      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Total Hours" value={totalHours.toFixed(1)} tone="primary" trend={hoursTrend} />
         <StatCard label="This Month" value={thisMonthHours.toFixed(1)} tone="success" trend={hoursTrend} />
         <StatCard label="Entries" value={String(entries.length)} tone="violet" trend={entriesTrend} />
