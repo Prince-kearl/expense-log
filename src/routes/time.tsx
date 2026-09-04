@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Clock, Trash2 } from "lucide-react";
+import { Clock, Download, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, KpiCarousel, PageHeader, PrimaryButton, StatCard, fieldClass, labelClass } from "@/components/expense-ui";
+import { Card, KpiCarousel, PageHeader, PrimaryButton, SecondaryButton, StatCard, fieldClass, labelClass } from "@/components/expense-ui";
+import { downloadCsv } from "@/lib/csv";
 import { deleteTimeEntry, getMyTimeEntries, logTime } from "@/lib/team-api.functions";
 import { formatDate } from "@/lib/expenses";
 
@@ -117,6 +118,14 @@ function TimeTrackingPage() {
     }
   }
 
+  function exportEntries() {
+    downloadCsv(
+      "time-entries.csv",
+      ["Date", "Hours", "Note"],
+      sorted.map((entry) => [entry.entry_date, entry.hours, entry.note]),
+    );
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -124,6 +133,11 @@ function TimeTrackingPage() {
         subtitle="Log the hours you spend working on your role."
         icon={<Clock className="h-4 w-4" />}
         overlapNext
+        actions={
+          <SecondaryButton type="button" onClick={exportEntries}>
+            <Download className="h-4 w-4" /> Export
+          </SecondaryButton>
+        }
       />
 
       <KpiCarousel gridClassName="sm:grid-cols-3">
