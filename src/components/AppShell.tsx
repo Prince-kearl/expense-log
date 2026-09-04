@@ -1,19 +1,61 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, BarChart3, Clock, FileText, Home, LogOut, Monitor, Moon, PlusCircle, Sun, User } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import {
+  Bell,
+  BarChart3,
+  ChevronLeft,
+  Clock,
+  FileText,
+  Home,
+  LogOut,
+  Monitor,
+  Moon,
+  MoreHorizontal,
+  PlusCircle,
+  Sun,
+  User,
+  Users,
+} from "lucide-react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { useCurrentUser } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { label: "Dashboard", to: "/dashboard", icon: Home },
-  { label: "Expenses", to: "/expenses", icon: FileText },
-  { label: "Add Expense", to: "/expenses/new", icon: PlusCircle },
-  { label: "My Expenses", to: "/my-expenses", icon: User },
-  { label: "Time Tracking", to: "/time", icon: Clock },
-  { label: "Reports", to: "/reports", icon: BarChart3 },
+  { label: "Dashboard", to: "/dashboard", icon: Home, mobileSlot: "pinned" },
+  { label: "Expenses", to: "/expenses", icon: FileText, mobileSlot: "primary" },
+  { label: "Add Expense", to: "/expenses/new", icon: PlusCircle, mobileSlot: "primary" },
+  { label: "My Expenses", to: "/my-expenses", icon: User, mobileSlot: "more" },
+  { label: "Time Tracking", to: "/time", icon: Clock, mobileSlot: "primary" },
+  { label: "Reports", to: "/reports", icon: BarChart3, mobileSlot: "more" },
+  { label: "Team", to: "/team", icon: Users, mobileSlot: "more" },
 ] as const;
+
+const MOBILE_PINNED_NAV = NAV.filter((item) => item.mobileSlot === "pinned");
+const MOBILE_PRIMARY_NAV = NAV.filter((item) => item.mobileSlot === "primary");
+const MOBILE_MORE_NAV = NAV.filter((item) => item.mobileSlot === "more");
+
+// AppShell is mounted fresh by every route (each page wraps itself in <AppShell>),
+// so ordinary component state resets on every navigation. Keeping "show more" here,
+// outside the component tree, lets it survive those remounts until the user taps Back.
+let mobileNavShowMore = false;
+const mobileNavShowMoreListeners = new Set<() => void>();
+
+function setMobileNavShowMore(value: boolean) {
+  mobileNavShowMore = value;
+  mobileNavShowMoreListeners.forEach((listener) => listener());
+}
+
+function useMobileNavShowMore() {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      mobileNavShowMoreListeners.add(onStoreChange);
+      return () => mobileNavShowMoreListeners.delete(onStoreChange);
+    },
+    () => mobileNavShowMore,
+    () => false, // SSR has no concept of this client-only toggle — always render collapsed
+  );
+}
 
 type MenuKey = "account" | "notifications";
 
@@ -187,6 +229,10 @@ function DesktopNav() {
 
 function MobileBottomNav() {
   const isActive = useActiveNav();
+  const showMore = useMobileNavShowMore();
+  const moreActive = MOBILE_MORE_NAV.some((item) => isActive(item.to));
+
+  const items = [...MOBILE_PINNED_NAV, ...(showMore ? MOBILE_MORE_NAV : MOBILE_PRIMARY_NAV)];
 
   return (
     <nav
@@ -194,7 +240,7 @@ function MobileBottomNav() {
       aria-label="Primary"
     >
       <div className="flex w-fit max-w-full items-center gap-1 rounded-full bg-primary p-1.5 shadow-card">
-        {NAV.map((item) => {
+        {items.map((item) => {
           const active = isActive(item.to);
           const Icon = item.icon;
           return (
@@ -215,6 +261,27 @@ function MobileBottomNav() {
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setMobileNavShowMore(!showMore)}
+          aria-label={showMore ? "Back" : "More"}
+          aria-expanded={showMore}
+          className={cn(
+            "flex min-w-0 items-center justify-center rounded-full border transition-colors",
+            showMore || moreActive
+              ? "gap-1.5 border-primary-foreground/50 bg-primary-foreground/15 px-3 py-2.5 text-primary-foreground backdrop-blur-sm"
+              : "h-10 w-10 shrink-0 border-transparent text-primary-foreground/50 hover:text-primary-foreground/80",
+          )}
+        >
+          {showMore ? (
+            <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2.4} />
+          ) : (
+            <MoreHorizontal className="h-5 w-5 shrink-0" strokeWidth={moreActive ? 2.4 : 2} />
+          )}
+          {showMore || moreActive ? (
+            <span className="truncate text-[13px] font-semibold">{showMore ? "Back" : "More"}</span>
+          ) : null}
+        </button>
       </div>
     </nav>
   );

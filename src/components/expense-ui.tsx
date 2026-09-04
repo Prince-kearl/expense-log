@@ -1,7 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { Children, useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react";
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import { CATEGORY_BADGE, initials } from "@/lib/expenses";
+import { categoryBadgeClass, initials } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -20,31 +21,56 @@ export function TeamAvatarStack({
   members,
   max = 6,
 }: {
-  members: { name: string; email: string }[];
+  members: { name: string; email: string; user_id?: string }[];
   max?: number;
 }) {
   const visible = members.slice(0, max);
+  const count = members.length;
 
   return (
-    <div className="flex items-center -space-x-3">
-      {visible.map((member, i) => (
-        <span
-          key={member.email || member.name}
-          title={member.name}
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-full border-2 border-card text-[13px] font-semibold shadow-card",
+    <div
+      className="flex items-center gap-3"
+      aria-label={`${count} ${count === 1 ? "member" : "members"} on your team`}
+    >
+      <div className="flex items-center -space-x-3">
+        {visible.map((member, i) => {
+          const isLast = i === visible.length - 1;
+          const key = member.email || member.name;
+          const avatarClass = cn(
+            "flex h-10 w-10 items-center justify-center rounded-full border-2 border-card text-[13px] font-semibold shadow-card transition-transform hover:z-10 hover:scale-105",
             AVATAR_TONES[i % AVATAR_TONES.length],
-          )}
-        >
-          {initials(member.name)}
-        </span>
-      ))}
-      <span
-        aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-border bg-card text-muted-foreground"
+          );
+          const avatar = member.user_id ? (
+            <Link to="/team/$userId" params={{ userId: member.user_id }} title={member.name} className={avatarClass}>
+              {initials(member.name)}
+            </Link>
+          ) : (
+            <span title={member.name} className={avatarClass}>
+              {initials(member.name)}
+            </span>
+          );
+
+          if (!isLast) {
+            return <span key={key}>{avatar}</span>;
+          }
+
+          return (
+            <div key={key} className="relative">
+              {avatar}
+              <span className="pointer-events-none absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[11px] font-semibold text-destructive-foreground">
+                {count > 99 ? "99+" : count}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <Link
+        to="/team"
+        aria-label="View team"
+        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground shadow-card transition-colors hover:bg-muted"
       >
         <Plus className="h-4 w-4" />
-      </span>
+      </Link>
     </div>
   );
 }
@@ -236,7 +262,7 @@ export function CategoryPill({ category }: { category: string }) {
     <span
       className={cn(
         "inline-flex items-center rounded-md px-2.5 py-1 text-[13px] font-medium",
-        CATEGORY_BADGE[category] ?? "bg-muted text-muted-foreground",
+        categoryBadgeClass(category),
       )}
     >
       {category}

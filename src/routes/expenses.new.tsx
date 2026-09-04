@@ -12,8 +12,8 @@ import {
   fieldClass,
   labelClass,
 } from "@/components/expense-ui";
-import { useExpenseConfiguration } from "@/lib/app-data";
-import { createExpense, createExpenseCategory } from "@/lib/expense-api.functions";
+import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import { createExpense, createExpenseCategory, updateExpense } from "@/lib/expense-api.functions";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/expenses/new")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const edit = typeof search["edit"] === "string" ? search["edit"] : undefined;
+    return edit ? { edit } : {};
+  },
   head: () => ({
     meta: [
       { title: "Add Expense — ExpenseTracker" },
@@ -47,7 +51,6 @@ export const Route = createFileRoute("/expenses/new")({
 const today = () => new Date().toISOString().slice(0, 10);
 const PAYMENT_METHODS = ["Cash", "MoMo", "Credit Purchase", "Bank Transfer"];
 const EXPENSE_DRAFT_KEY = "cointrail:expense-draft";
-const CREATED_CATEGORIES_KEY = "cointrail:created-categories";
 type FormErrors = {
   amount?: string;
   date?: string;
@@ -65,7 +68,6 @@ type ExpenseDraft = {
   account: string;
   notes: string;
 };
-type CreatedCategory = { category: string; subcategories: string[] };
 
 function readStoredValue<T>(key: string, fallback: T) {
   if (typeof window === "undefined") return fallback;
@@ -78,13 +80,17 @@ function readStoredValue<T>(key: string, fallback: T) {
 
 function NewExpensePage() {
   const navigate = useNavigate();
+  const { edit: editExpenseId } = Route.useSearch();
+  const isEditing = Boolean(editExpenseId);
   const saveExpense = useServerFn(createExpense);
+  const saveExpenseEdits = useServerFn(updateExpense);
   const saveCategory = useServerFn(createExpenseCategory);
   const configuration = useExpenseConfiguration();
-  const [draft, setDraft] = useState<ExpenseDraft>(() => readStoredValue(EXPENSE_DRAFT_KEY, {
+  const expenses = useExpenses();
+  const editingExpense = editExpenseId ? expenses.find((e) => e.expense_id === editExpenseId) : undefined;
+  const [draft, setDraft] = useState<ExpenseDraft>(() => ({
     amount: "", date: today(), description: "", category: "", subcategory: "", vendor: "", paymentMethod: "", account: "", notes: "",
   }));
-  const [createdCategories, setCreatedCategories] = useState<CreatedCategory[]>(() => readStoredValue(CREATED_CATEGORIES_KEY, []));
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategories, setNewSubcategories] = useState([""]);
@@ -102,16 +108,42 @@ function NewExpensePage() {
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
-  const categories = [...configuration.categories, ...createdCategories];
+  const categories = configuration.categories;
   const subcategories = categories.find((item) => item.category === draft.category)?.subcategories ?? [];
 
+  // Restoring a saved draft from localStorage must happen after mount (not in the
+  // useState initializer) so the client's first render matches the server's SSR
+  // output — otherwise React reports a hydration mismatch.
+  const isFirstDraftPersist = useRef(true);
   useEffect(() => {
-    window.localStorage.setItem(EXPENSE_DRAFT_KEY, JSON.stringify(draft));
-  }, [draft]);
+    if (isEditing) return;
+    const stored = readStoredValue<ExpenseDraft | null>(EXPENSE_DRAFT_KEY, null);
+    if (stored) setDraft(stored);
+  }, [isEditing]);
 
   useEffect(() => {
-    window.localStorage.setItem(CREATED_CATEGORIES_KEY, JSON.stringify(createdCategories));
-  }, [createdCategories]);
+    if (isEditing) return;
+    if (isFirstDraftPersist.current) {
+      isFirstDraftPersist.current = false;
+      return;
+    }
+    window.localStorage.setItem(EXPENSE_DRAFT_KEY, JSON.stringify(draft));
+  }, [draft, isEditing]);
+
+  useEffect(() => {
+    if (!editingExpense) return;
+    setDraft({
+      amount: String(editingExpense.amount),
+      date: editingExpense.expense_date,
+      description: editingExpense.description,
+      category: editingExpense.category,
+      subcategory: editingExpense.subcategory,
+      vendor: editingExpense.vendor,
+      paymentMethod: editingExpense.payment_method,
+      account: editingExpense.account,
+      notes: editingExpense.notes,
+    });
+  }, [editingExpense]);
 
   useEffect(() => {
     const previews = new Map<File, string>();
@@ -209,12 +241,7 @@ function NewExpensePage() {
           saveCategory({ data: { category: newCategory, subcategory: subcategoryName } }),
         ),
       );
-      setCreatedCategories((current) => {
-        const existing = current.find((item) => item.category === newCategory.trim());
-        return existing
-          ? current.map((item) => item.category === newCategory.trim() ? { ...item, subcategories: [...item.subcategories, ...subcategoriesToCreate] } : item)
-          : [...current, { category: newCategory.trim(), subcategories: subcategoriesToCreate }];
-      });
+      configuration.refetch();
       setDraft((current) => ({
         ...current,
         category: newCategory.trim(),
@@ -240,22 +267,41 @@ function NewExpensePage() {
 
     setIsSaving(true);
     setSubmitError("");
-    const formData = new FormData();
-    formData.set("amount", draft.amount);
-    formData.set("currency", "GHC");
-    formData.set("expense_date", draft.date);
-    formData.set("description", draft.description);
-    formData.set("category", draft.category);
-    formData.set("subcategory", draft.subcategory);
-    formData.set("vendor", draft.vendor);
-    formData.set("payment_method", draft.paymentMethod);
-    formData.set("account", draft.account);
-    formData.set("notes", draft.notes);
-    receipts.forEach((receipt) => formData.append("receipts", receipt));
     try {
-      const expense = await saveExpense({ data: formData });
-      window.localStorage.removeItem(EXPENSE_DRAFT_KEY);
-      navigate({ to: "/expenses/$expenseId", params: { expenseId: expense.expense_id } });
+      if (isEditing && editExpenseId) {
+        const expense = await saveExpenseEdits({
+          data: {
+            expenseId: editExpenseId,
+            amount: Number(draft.amount),
+            expenseDate: draft.date,
+            description: draft.description,
+            category: draft.category,
+            subcategory: draft.subcategory,
+            currency: "GHC",
+            vendor: draft.vendor,
+            paymentMethod: draft.paymentMethod,
+            account: draft.account,
+            notes: draft.notes,
+          },
+        });
+        navigate({ to: "/expenses/$expenseId", params: { expenseId: expense.expense_id } });
+      } else {
+        const formData = new FormData();
+        formData.set("amount", draft.amount);
+        formData.set("currency", "GHC");
+        formData.set("expense_date", draft.date);
+        formData.set("description", draft.description);
+        formData.set("category", draft.category);
+        formData.set("subcategory", draft.subcategory);
+        formData.set("vendor", draft.vendor);
+        formData.set("payment_method", draft.paymentMethod);
+        formData.set("account", draft.account);
+        formData.set("notes", draft.notes);
+        receipts.forEach((receipt) => formData.append("receipts", receipt));
+        const expense = await saveExpense({ data: formData });
+        window.localStorage.removeItem(EXPENSE_DRAFT_KEY);
+        navigate({ to: "/expenses/$expenseId", params: { expenseId: expense.expense_id } });
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to save the expense. Please try again.");
     } finally {
@@ -266,8 +312,8 @@ function NewExpensePage() {
   return (
     <AppShell>
       <PageHeader
-        title="Add Expense"
-        subtitle="Record a new expense for the organization."
+        title={isEditing ? "Edit Expense" : "Add Expense"}
+        subtitle={isEditing ? "Update the details for this expense." : "Record a new expense for the organization."}
         actions={
           <SecondaryButton
             type="button"
@@ -407,6 +453,26 @@ function NewExpensePage() {
 
             <div className="lg:col-span-1">
               <label className={labelClass}>Receipt</label>
+              {isEditing ? (
+                <div className="space-y-2">
+                  {editingExpense?.receipts.length ? (
+                    editingExpense.receipts.map((receipt) => (
+                      <div
+                        key={receipt.path}
+                        className="flex items-center gap-2 border border-border bg-muted/50 px-3 py-2.5 text-[14px] text-foreground"
+                      >
+                        <FileText className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="truncate">{receipt.filename}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-muted-foreground">No receipt attached.</p>
+                  )}
+                  <p className="text-[12px] text-muted-foreground">
+                    Receipts can&apos;t be changed here. Delete and recreate the expense to update them.
+                  </p>
+                </div>
+              ) : (
               <div className="space-y-3">
                 {receipts.length ? (
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -471,6 +537,7 @@ function NewExpensePage() {
                   />
                 </div>
               </div>
+              )}
             </div>
 
             <div className="lg:col-span-2">
@@ -487,11 +554,17 @@ function NewExpensePage() {
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-border pt-6">
             {submitError ? <p className="mr-auto text-[14px] text-destructive">{submitError}</p> : null}
-            <Link to="/expenses">
-              <SecondaryButton type="button">Cancel</SecondaryButton>
-            </Link>
+            {isEditing && editExpenseId ? (
+              <Link to="/expenses/$expenseId" params={{ expenseId: editExpenseId }}>
+                <SecondaryButton type="button">Cancel</SecondaryButton>
+              </Link>
+            ) : (
+              <Link to="/expenses">
+                <SecondaryButton type="button">Cancel</SecondaryButton>
+              </Link>
+            )}
             <PrimaryButton type="submit" disabled={isSaving}>
-              <Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Expense"}
+              <Save className="h-4 w-4" /> {isSaving ? "Saving..." : isEditing ? "Save Changes" : "Save Expense"}
             </PrimaryButton>
           </div>
         </Card>

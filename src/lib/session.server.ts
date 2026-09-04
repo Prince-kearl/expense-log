@@ -1,4 +1,5 @@
 import type { AppUser } from "./expenses";
+import { requireActiveRole } from "./supabase.server";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -59,6 +60,16 @@ export async function readSession(token: string | undefined): Promise<AppUser | 
   }
 }
 
+export async function requireCurrentUser(request: Request): Promise<AppUser> {
+  const user = await readSession(readCookie(request, "expense_tracker_session"));
+  if (!user) throw new Error("You must sign in to continue.");
+  // Re-check live membership on every request (not just owner-gated actions) so a
+  // removed member loses access immediately instead of waiting out the session's
+  // up-to-7-day expiry.
+  await requireActiveRole(user.user_id, user.team_id, "member");
+  return user;
+}
+
 export function readCookie(request: Request, name: string) {
   return request.headers
     .get("cookie")
@@ -66,8 +77,4 @@ export function readCookie(request: Request, name: string) {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`))
     ?.slice(name.length + 1);
-}
-
-export function sessionCookie(value: string, secure: boolean, maxAge = 60 * 60 * 24 * 7) {
-  return `expense_tracker_session=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
 }

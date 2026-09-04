@@ -15,7 +15,7 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, KpiCarousel, PageHeader, SecondaryButton, SelectField, StatCard } from "@/components/expense-ui";
 import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
-import { CATEGORY_COLORS, buildMonthlyTrend, formatMoney, formatMoneyShort } from "@/lib/expenses";
+import { buildMonthlyTrend, categoryColor, formatMoney, formatMoneyShort } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/reports")({
@@ -167,14 +167,8 @@ function ReportsPage() {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Card className="min-w-0 p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[17px] font-semibold text-foreground">Spending Trend</h2>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                Total spend (past {chartRange} months){category === "all" ? "" : ` in ${category}`}:{" "}
-                <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[17px] font-semibold text-foreground">Spending Trend</h2>
             <div className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-1 text-[13px]">
               {CHART_RANGES.map((range) => (
                 <button
@@ -193,6 +187,10 @@ function ReportsPage() {
               ))}
             </div>
           </div>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Total spend (past {chartRange} months){category === "all" ? "" : ` in ${category}`}:{" "}
+            <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
+          </p>
           <div className="mt-6 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -206,7 +204,7 @@ function ReportsPage() {
                   dataKey="label"
                   tickLine={false}
                   axisLine={false}
-                  interval={0}
+                  interval={chartData.length > 6 ? 1 : 0}
                   tick={{ fontSize: 13, fill: "var(--muted-foreground)" }}
                   dy={8}
                 />
@@ -231,13 +229,13 @@ function ReportsPage() {
                   formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
                 />
                 <Area
-                  type="linear"
+                  type="monotone"
                   dataKey="value"
                   stroke="var(--primary)"
                   strokeWidth={2}
                   fill="url(#reportsSpendFill)"
-                  dot={{ r: 3.5, fill: "var(--background)", stroke: "var(--primary)", strokeWidth: 2 }}
-                  activeDot={{ r: 5, fill: "var(--primary)" }}
+                  dot={false}
+                  activeDot={{ r: 5, fill: "var(--primary)", stroke: "var(--background)", strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -262,7 +260,7 @@ function ReportsPage() {
                     {byCategory.map((c) => (
                       <Cell
                         key={c.name}
-                        fill={CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)"}
+                        fill={categoryColor(c.name)}
                       />
                     ))}
                   </Pie>
@@ -282,7 +280,7 @@ function ReportsPage() {
                 <div key={c.name} className="flex items-center gap-3 text-[14px]">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)" }}
+                    style={{ backgroundColor: categoryColor(c.name) }}
                   />
                   <span className="flex-1 truncate text-foreground">{c.name}</span>
                   <span className="text-foreground">{formatMoneyShort(c.amount)}</span>
@@ -312,7 +310,7 @@ function ReportsPage() {
                   <span className="flex items-center gap-2 text-[15px] font-medium text-foreground">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)" }}
+                      style={{ backgroundColor: categoryColor(c.name) }}
                     />
                     <span className="truncate">{c.name}</span>
                   </span>
@@ -322,7 +320,7 @@ function ReportsPage() {
                         className="h-full rounded-full"
                         style={{
                           width: `${share}%`,
-                          backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)",
+                          backgroundColor: categoryColor(c.name),
                         }}
                       />
                     </div>
@@ -362,7 +360,7 @@ function ReportsPage() {
                         <span
                           className="h-2.5 w-2.5 rounded-full"
                           style={{
-                            backgroundColor: CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)",
+                            backgroundColor: categoryColor(c.name),
                           }}
                         />
                         {c.name}
@@ -380,7 +378,7 @@ function ReportsPage() {
                             style={{
                               width: `${share}%`,
                               backgroundColor:
-                                CATEGORY_COLORS[c.name] ?? "var(--muted-foreground)",
+                                categoryColor(c.name),
                             }}
                           />
                         </div>
