@@ -109,7 +109,11 @@ export async function getUserFromRecoveryCode(code: string) {
 }
 
 export async function getUserProfile(userId: string): Promise<TeamUser | null> {
-  const { data, error } = await db().from("users").select("id, name, email").eq("id", userId).maybeSingle();
+  const { data, error } = await db()
+    .from("users")
+    .select("id, name, email")
+    .eq("id", userId)
+    .maybeSingle();
   if (error) fail("Loading account", error);
   return data;
 }
@@ -130,29 +134,117 @@ export async function createTeamWithOwner(userId: string, teamName: string) {
   return team as { id: string; name: string };
 }
 
-export type TeamDetails = { id: string; name: string; standard_hourly_rate: number | null; currency: string };
+export type TeamDetails = {
+  id: string;
+  name: string;
+  standard_hourly_rate: number | null;
+  currency: string;
+  budget_feature_enabled: boolean;
+};
 
 export async function getTeamById(teamId: string): Promise<TeamDetails | null> {
   const { data, error } = await db()
     .from("teams")
-    .select("id, name, standard_hourly_rate, currency")
+    .select("id, name, standard_hourly_rate, currency, budget_feature_enabled")
     .eq("id", teamId)
     .maybeSingle();
   if (error) fail("Loading team", error);
   return data as TeamDetails | null;
 }
 
-export async function getActiveTeamForUser(userId: string): Promise<SessionTeamContext | null> {
+/** All teams the user is an active member of, most recently joined first. */
+export async function getTeamMembershipsForUser(userId: string): Promise<SessionTeamContext[]> {
   const { data, error } = await db()
     .from("team_members")
-    .select("role, teams(id, name)")
+    .select("role, joined_at, teams(id, name)")
     .eq("user_id", userId)
     .eq("status", "active")
+    .order("joined_at", { ascending: false });
+  if (error) fail("Loading your teams", error);
+  return (data ?? [])
+    .filter((row) => row.teams)
+    .map((row) => {
+      const team = row.teams as unknown as { id: string; name: string };
+      return { team_id: team.id, team_name: team.name, role: row.role as TeamRole };
+    });
+}
+
+/**
+ * Team names where deleting this user would leave the team with active
+ * members but no owner — every other active member's `role` is "member".
+ * A team where this user is the only active member at all is NOT blocking:
+ * deleting their account just orphans a team nobody else is using.
+ */
+export async function getBlockingOwnerships(userId: string): Promise<string[]> {
+  const { data: ownedRows, error } = await db()
+    .from("team_members")
+    .select("team_id, teams(name)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .eq("role", "owner");
+  if (error) fail("Checking team ownership", error);
+
+  const blocking: string[] = [];
+  for (const row of ownedRows ?? []) {
+    const { data: teammates, error: teammatesError } = await db()
+      .from("team_members")
+      .select("role")
+      .eq("team_id", row.team_id)
+      .eq("status", "active")
+      .neq("user_id", userId);
+    if (teammatesError) fail("Checking team ownership", teammatesError);
+
+    const hasOtherActiveMembers = (teammates ?? []).length > 0;
+    const hasOtherOwner = (teammates ?? []).some((teammate) => teammate.role === "owner");
+    if (hasOtherActiveMembers && !hasOtherOwner) {
+      const team = row.teams as unknown as { name: string } | null;
+      blocking.push(team?.name ?? "a team");
+    }
+  }
+  return blocking;
+}
+
+/**
+ * Deletes the Supabase auth user, which cascades to their public.users row
+ * and from there to team_members and time_entries. Expenses, invitations,
+ * and teams they created are kept (see migration 0005) with the FK set to
+ * null — never call this while getBlockingOwnerships still returns entries
+ * for this user, or a team is left with no owner.
+ */
+export async function deleteAccountForUser(userId: string) {
+  const { error } = await db().auth.admin.deleteUser(userId);
+  if (error) fail("Deleting account", error);
+}
+
+export async function getLastActiveTeamId(userId: string): Promise<string | null> {
+  const { data, error } = await db()
+    .from("users")
+    .select("last_active_team_id")
+    .eq("id", userId)
     .maybeSingle();
-  if (error) fail("Loading your team", error);
-  if (!data || !data.teams) return null;
-  const team = data.teams as unknown as { id: string; name: string };
-  return { team_id: team.id, team_name: team.name, role: data.role as TeamRole };
+  if (error) fail("Loading your last active team", error);
+  return data?.last_active_team_id ?? null;
+}
+
+export async function setLastActiveTeamId(userId: string, teamId: string) {
+  const { error } = await db()
+    .from("users")
+    .update({ last_active_team_id: teamId })
+    .eq("id", userId);
+  if (error) fail("Remembering your active team", error);
+}
+
+/**
+ * Picks which team a user should land in: their remembered last-active team if
+ * they're still an active member of it, otherwise their most recently joined team.
+ */
+export async function resolveInitialTeamForUser(
+  userId: string,
+): Promise<SessionTeamContext | null> {
+  const [mostRecent, ...rest] = await getTeamMembershipsForUser(userId);
+  if (!mostRecent) return null;
+  const lastActiveTeamId = await getLastActiveTeamId(userId);
+  return [mostRecent, ...rest].find((m) => m.team_id === lastActiveTeamId) ?? mostRecent;
 }
 
 /** Re-checks membership live against the database — never trust the session cookie for owner-gated actions. */
@@ -164,7 +256,8 @@ export async function requireActiveRole(userId: string, teamId: string, role: Te
     .eq("team_id", teamId)
     .maybeSingle();
   if (error) fail("Checking permissions", error);
-  if (!data || data.status !== "active") throw new Error("You are no longer a member of this team.");
+  if (!data || data.status !== "active")
+    throw new Error("You are no longer a member of this team.");
   if (role === "owner" && data.role !== "owner") throw new Error("Only a team owner can do this.");
   return data.role as TeamRole;
 }
@@ -208,9 +301,97 @@ export async function promoteToOwner(teamId: string, userId: string) {
   if (error) fail("Promoting member", error);
 }
 
-export async function updateTeamSettings(teamId: string, updates: { name?: string; standard_hourly_rate?: number | null }) {
+export async function updateTeamSettings(
+  teamId: string,
+  updates: {
+    name?: string;
+    standard_hourly_rate?: number | null;
+    currency?: string;
+    budget_feature_enabled?: boolean;
+  },
+) {
   const { error } = await db().from("teams").update(updates).eq("id", teamId);
   if (error) fail("Updating team settings", error);
+}
+
+export type Budget = {
+  id: string;
+  /** null means an overall budget across every category, not one specific category. */
+  category: string | null;
+  month: string;
+  amount: number;
+  currency: string;
+};
+
+export async function getBudgetsForMonth(teamId: string, month: string): Promise<Budget[]> {
+  const { data, error } = await db()
+    .from("budgets")
+    .select("id, category, month, amount, currency")
+    .eq("team_id", teamId)
+    .eq("month", month);
+  if (error) fail("Loading budgets", error);
+  return (data ?? []) as Budget[];
+}
+
+export type UpsertBudgetInput = {
+  category: string | null;
+  month: string;
+  amount: number;
+  currency: string;
+};
+
+/**
+ * One budget row per team/category/month (see migration 0006 for the two
+ * partial unique indexes backing this — category-specific and the single
+ * category-null "overall" row). Postgrest upsert needs one named constraint,
+ * and we have two, so this looks up the existing row itself instead.
+ */
+export async function upsertBudget(teamId: string, userId: string, input: UpsertBudgetInput) {
+  let existingQuery = db()
+    .from("budgets")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("month", input.month);
+  existingQuery =
+    input.category === null
+      ? existingQuery.is("category", null)
+      : existingQuery.eq("category", input.category);
+  const { data: existing, error: findError } = await existingQuery.maybeSingle();
+  if (findError) fail("Saving budget", findError);
+
+  if (existing) {
+    const { error } = await db()
+      .from("budgets")
+      .update({
+        amount: input.amount,
+        currency: input.currency,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .eq("team_id", teamId);
+    if (error) fail("Saving budget", error);
+    return existing.id as string;
+  }
+
+  const { data, error } = await db()
+    .from("budgets")
+    .insert({
+      team_id: teamId,
+      category: input.category,
+      month: input.month,
+      amount: input.amount,
+      currency: input.currency,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error || !data) fail("Saving budget", error);
+  return data.id as string;
+}
+
+export async function deleteBudget(teamId: string, budgetId: string) {
+  const { error } = await db().from("budgets").delete().eq("id", budgetId).eq("team_id", teamId);
+  if (error) fail("Deleting budget", error);
 }
 
 export async function createInvitation(teamId: string, email: string, invitedByUserId: string) {
@@ -218,22 +399,34 @@ export async function createInvitation(teamId: string, email: string, invitedByU
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
   const { data, error } = await db()
     .from("invitations")
-    .insert({ team_id: teamId, email: email.toLowerCase(), invited_by: invitedByUserId, token, expires_at: expiresAt })
+    .insert({
+      team_id: teamId,
+      email: email.toLowerCase(),
+      invited_by: invitedByUserId,
+      token,
+      expires_at: expiresAt,
+    })
     .select("id, token")
     .single();
   if (error || !data) fail("Creating invitation", error);
   return data as { id: string; token: string };
 }
 
-export async function deleteInvitation(invitationId: string) {
-  const { error } = await db().from("invitations").delete().eq("id", invitationId);
+export async function deleteInvitation(teamId: string, invitationId: string) {
+  const { error } = await db()
+    .from("invitations")
+    .delete()
+    .eq("id", invitationId)
+    .eq("team_id", teamId);
   if (error) fail("Removing invitation", error);
 }
 
 export async function listPendingInvitations(teamId: string): Promise<Invitation[]> {
   const { data, error } = await db()
     .from("invitations")
-    .select("id, team_id, email, token, status, expires_at, created_at, users!invitations_invited_by_fkey(name)")
+    .select(
+      "id, team_id, email, token, status, expires_at, created_at, users!invitations_invited_by_fkey(name)",
+    )
     .eq("team_id", teamId)
     .eq("status", "pending")
     .order("created_at", { ascending: false });
@@ -253,7 +446,9 @@ export async function listPendingInvitations(teamId: string): Promise<Invitation
 export async function getInvitationByToken(token: string) {
   const { data, error } = await db()
     .from("invitations")
-    .select("id, team_id, email, status, expires_at, invited_by, teams(name), users!invitations_invited_by_fkey(name)")
+    .select(
+      "id, team_id, email, status, expires_at, invited_by, teams(name), users!invitations_invited_by_fkey(name)",
+    )
     .eq("token", token)
     .maybeSingle();
   if (error) fail("Loading invitation", error);
@@ -278,7 +473,10 @@ export async function markInvitationAccepted(invitationId: string) {
 }
 
 export async function markInvitationDeclined(invitationId: string) {
-  const { error } = await db().from("invitations").update({ status: "declined" }).eq("id", invitationId);
+  const { error } = await db()
+    .from("invitations")
+    .update({ status: "declined" })
+    .eq("id", invitationId);
   if (error) fail("Updating invitation", error);
 }
 
@@ -297,17 +495,30 @@ export type TimeEntryRow = {
   created_at: string;
 };
 
-export async function insertTimeEntry(teamId: string, userId: string, entry: { date: string; hours: number; note: string }) {
+export async function insertTimeEntry(
+  teamId: string,
+  userId: string,
+  entry: { date: string; hours: number; note: string },
+) {
   const { data, error } = await db()
     .from("time_entries")
-    .insert({ team_id: teamId, user_id: userId, entry_date: entry.date, hours: entry.hours, note: entry.note })
+    .insert({
+      team_id: teamId,
+      user_id: userId,
+      entry_date: entry.date,
+      hours: entry.hours,
+      note: entry.note,
+    })
     .select("id, entry_date, hours, note, created_at")
     .single();
   if (error || !data) fail("Logging time", error);
   return data as TimeEntryRow;
 }
 
-export async function getTimeEntriesForUser(teamId: string, userId: string): Promise<TimeEntryRow[]> {
+export async function getTimeEntriesForUser(
+  teamId: string,
+  userId: string,
+): Promise<TimeEntryRow[]> {
   const { data, error } = await db()
     .from("time_entries")
     .select("id, entry_date, hours, note, created_at")
@@ -331,7 +542,10 @@ export async function deleteTimeEntryById(teamId: string, userId: string, entryI
 
 export type TeamTimeEntryRow = TimeEntryRow & { user_id: string; user_name: string };
 
-export async function getTimeEntriesForTeam(teamId: string, limit = 30): Promise<TeamTimeEntryRow[]> {
+export async function getTimeEntriesForTeam(
+  teamId: string,
+  limit = 30,
+): Promise<TeamTimeEntryRow[]> {
   const { data, error } = await db()
     .from("time_entries")
     .select("id, entry_date, hours, note, created_at, user_id, users(name)")

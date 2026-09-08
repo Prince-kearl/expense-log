@@ -1,14 +1,59 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
-import { getCurrentUser, getExpenseConfiguration, getExpenses, getMyExpenses } from "./expense-api.functions";
+import {
+  getCurrentUser,
+  getExpenseConfiguration,
+  getExpenses,
+  getMyExpenses,
+} from "./expense-api.functions";
 import { DEFAULT_CATEGORIES, type AppUser, type Expense } from "./expenses";
-import { getCurrentTeam, getNotifications, markNotificationsAsRead, type NotificationItem } from "./team-api.functions";
+import {
+  getBudgets,
+  getCurrentTeam,
+  getMyTeamMemberships,
+  getNotifications,
+  getTeamSettings,
+  markNotificationsAsRead,
+  type NotificationItem,
+} from "./team-api.functions";
 
 type TeamMember = Awaited<ReturnType<typeof getCurrentTeam>>["members"][number];
 const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
+
+export type BudgetItem = Awaited<ReturnType<typeof getBudgets>>[number];
+const EMPTY_BUDGETS: BudgetItem[] = [];
+
+export function useBudgets(month: string) {
+  const fetchBudgets = useServerFn(getBudgets);
+  const [budgets, setBudgets] = useState<BudgetItem[]>(EMPTY_BUDGETS);
+
+  const refetch = useCallback(() => {
+    fetchBudgets({ data: { month } })
+      .then(setBudgets)
+      .catch(() => setBudgets(EMPTY_BUDGETS));
+  }, [fetchBudgets, month]);
+
+  useEffect(refetch, [refetch]);
+
+  return { budgets, refetch };
+}
 const EMPTY_NOTIFICATIONS: NotificationItem[] = [];
 const NOTIFICATIONS_POLL_MS = 60_000;
+
+export type TeamMembershipSummary = Awaited<ReturnType<typeof getMyTeamMemberships>>[number];
+const EMPTY_TEAM_MEMBERSHIPS: TeamMembershipSummary[] = [];
+
+export function useMyTeamMemberships() {
+  const fetchMemberships = useServerFn(getMyTeamMemberships);
+  const [memberships, setMemberships] = useState<TeamMembershipSummary[]>(EMPTY_TEAM_MEMBERSHIPS);
+  useEffect(() => {
+    fetchMemberships({ data: undefined })
+      .then(setMemberships)
+      .catch(() => setMemberships(EMPTY_TEAM_MEMBERSHIPS));
+  }, [fetchMemberships]);
+  return memberships;
+}
 
 export type ExpenseConfiguration = {
   categories: { category: string; subcategories: string[] }[];
@@ -23,7 +68,9 @@ export function useExpenses() {
   const fetchExpenses = useServerFn(getExpenses);
   const [expenses, setExpenses] = useState<Expense[]>(EMPTY_EXPENSES);
   useEffect(() => {
-    fetchExpenses({ data: undefined }).then(setExpenses).catch(() => setExpenses(EMPTY_EXPENSES));
+    fetchExpenses({ data: undefined })
+      .then(setExpenses)
+      .catch(() => setExpenses(EMPTY_EXPENSES));
   }, [fetchExpenses]);
   return expenses;
 }
@@ -32,7 +79,9 @@ export function useMyExpenses() {
   const fetchExpenses = useServerFn(getMyExpenses);
   const [expenses, setExpenses] = useState<Expense[]>(EMPTY_EXPENSES);
   useEffect(() => {
-    fetchExpenses({ data: undefined }).then(setExpenses).catch(() => setExpenses(EMPTY_EXPENSES));
+    fetchExpenses({ data: undefined })
+      .then(setExpenses)
+      .catch(() => setExpenses(EMPTY_EXPENSES));
   }, [fetchExpenses]);
   return expenses;
 }
@@ -48,25 +97,45 @@ export function useTeamMembers() {
   return members;
 }
 
-export type TeamSettings = { standardHourlyRate: number | null; currency: string };
-const EMPTY_TEAM_SETTINGS: TeamSettings = { standardHourlyRate: null, currency: "GHS" };
+export type TeamSettings = {
+  standardHourlyRate: number | null;
+  currency: string;
+  budgetFeatureEnabled: boolean;
+};
+const EMPTY_TEAM_SETTINGS: TeamSettings = {
+  standardHourlyRate: null,
+  currency: "GHS",
+  budgetFeatureEnabled: true,
+};
 
 export function useTeamSettings() {
-  const fetchTeam = useServerFn(getCurrentTeam);
+  const fetchTeam = useServerFn(getTeamSettings);
   const [settings, setSettings] = useState<TeamSettings>(EMPTY_TEAM_SETTINGS);
-  useEffect(() => {
+
+  const refetch = useCallback(() => {
     fetchTeam({ data: undefined })
-      .then((result) => setSettings({ standardHourlyRate: result.team.standard_hourly_rate, currency: result.team.currency }))
+      .then((team) =>
+        setSettings({
+          standardHourlyRate: team.standard_hourly_rate,
+          currency: team.currency,
+          budgetFeatureEnabled: team.budget_feature_enabled,
+        }),
+      )
       .catch(() => setSettings(EMPTY_TEAM_SETTINGS));
   }, [fetchTeam]);
-  return settings;
+
+  useEffect(refetch, [refetch]);
+
+  return { ...settings, refetch };
 }
 
 export function useCurrentUser() {
   const fetchUser = useServerFn(getCurrentUser);
   const [user, setUser] = useState<AppUser | null>(null);
   useEffect(() => {
-    fetchUser({ data: undefined }).then(setUser).catch(() => setUser(null));
+    fetchUser({ data: undefined })
+      .then(setUser)
+      .catch(() => setUser(null));
   }, [fetchUser]);
   return user;
 }
@@ -119,7 +188,6 @@ export function useRequireAuth() {
   }, [fetchUser, navigate]);
   return user;
 }
-
 
 function withDefaultCategories(configuration: ExpenseConfiguration): ExpenseConfiguration {
   const existing = new Set(configuration.categories.map((c) => c.category));

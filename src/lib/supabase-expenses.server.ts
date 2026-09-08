@@ -20,7 +20,7 @@ type ExpenseRow = {
   account: string;
   notes: string;
   receipts: ExpenseReceipt[];
-  created_by_user_id: string;
+  created_by_user_id: string | null;
   created_by_name: string;
   created_by_email: string;
   created_at: string;
@@ -68,7 +68,10 @@ export async function getExpensesForTeam(teamId: string): Promise<Expense[]> {
   return (data ?? []).map((row) => toExpense(row as ExpenseRow));
 }
 
-export async function getExpenseForTeam(teamId: string, expenseId: string): Promise<Expense | null> {
+export async function getExpenseForTeam(
+  teamId: string,
+  expenseId: string,
+): Promise<Expense | null> {
   const { data, error } = await db()
     .from("expenses")
     .select(EXPENSE_COLUMNS)
@@ -95,7 +98,10 @@ export async function getExpenseCategories(teamId: string): Promise<ExpenseCateg
     list.push(row.subcategory);
     grouped.set(row.category, list);
   }
-  return Array.from(grouped.entries()).map(([category, subcategories]) => ({ category, subcategories }));
+  return Array.from(grouped.entries()).map(([category, subcategories]) => ({
+    category,
+    subcategories,
+  }));
 }
 
 export async function createExpenseCategory(teamId: string, category: string, subcategory: string) {
@@ -137,7 +143,11 @@ export async function uploadReceipt(
     .storage.from(RECEIPTS_BUCKET)
     .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: true });
   if (error) fail("Uploading receipt", error);
-  return { path, filename: file.name || `receipt.${extension}`, mime_type: file.type || "application/octet-stream" };
+  return {
+    path,
+    filename: file.name || `receipt.${extension}`,
+    mime_type: file.type || "application/octet-stream",
+  };
 }
 
 export async function getReceiptObject(path: string) {

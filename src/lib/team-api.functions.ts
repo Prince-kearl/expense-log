@@ -1,19 +1,31 @@
 import { createServerFn } from "@tanstack/react-start";
-import { deleteCookie, getRequest, setCookie } from "@tanstack/react-start/server";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import type { AppUser } from "./expenses";
-import { createSession, readCookie, readSession, requireCurrentUser } from "./session.server";
+import {
+  clearSession,
+  establishSession,
+  readCookie,
+  readSession,
+  requireCurrentUser,
+  SESSION_COOKIE,
+} from "./session.server";
 import {
   createAuthUser,
   createInvitation,
   createTeamWithOwner,
+  deleteAccountForUser,
+  deleteBudget,
+  deleteInvitation,
   deleteTimeEntryById,
   findAuthUserByEmail,
-  getActiveTeamForUser,
+  getBlockingOwnerships,
+  getBudgetsForMonth,
   getInvitationByToken,
   getLastNotificationsReadAt,
   getTeamById,
   getTeamMembers,
+  getTeamMembershipsForUser,
   getTimeEntriesForTeam,
   getTimeEntriesForUser,
   getUserFromAccessToken,
@@ -28,29 +40,15 @@ import {
   promoteToOwner,
   removeMember,
   requireActiveRole,
+  resolveInitialTeamForUser,
   sendPasswordResetEmail,
+  setLastActiveTeamId,
   updateTeamSettings,
   updateUserPassword,
+  upsertBudget,
   verifyPassword,
 } from "./supabase.server";
 import { getExpensesForTeam } from "./supabase-expenses.server";
-
-const SESSION_COOKIE = "expense_tracker_session";
-
-function isSecureRequest() {
-  return getRequest().url.startsWith("https:");
-}
-
-async function establishSession(user: AppUser) {
-  const token = await createSession(user);
-  setCookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecureRequest(),
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
-}
 
 export const signUp = createServerFn({ method: "POST" })
   .validator(
@@ -63,7 +61,8 @@ export const signUp = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const existing = await findAuthUserByEmail(data.email);
-    if (existing) throw new Error("An account with this email already exists. Try signing in instead.");
+    if (existing)
+      throw new Error("An account with this email already exists. Try signing in instead.");
 
     const authUser = await createAuthUser(data.email, data.password, data.name);
     const team = await createTeamWithOwner(authUser.id, data.teamName);
@@ -77,6 +76,7 @@ export const signUp = createServerFn({ method: "POST" })
       role: "owner",
     };
     await establishSession(user);
+    await setLastActiveTeamId(authUser.id, team.id);
     return user;
   });
 
@@ -92,7 +92,7 @@ export const signIn = createServerFn({ method: "POST" })
     if (!authUser) throw new Error("Incorrect email or password.");
 
     const profile = await getUserProfile(authUser.id);
-    const team = await getActiveTeamForUser(authUser.id);
+    const team = await resolveInitialTeamForUser(authUser.id);
     if (!profile || !team) throw new Error("You're not currently part of a team.");
 
     const user: AppUser = {
@@ -104,11 +104,12 @@ export const signIn = createServerFn({ method: "POST" })
       role: team.role,
     };
     await establishSession(user);
+    await setLastActiveTeamId(authUser.id, team.team_id);
     return user;
   });
 
 export const signOutUser = createServerFn({ method: "POST" }).handler(async () => {
-  deleteCookie(SESSION_COOKIE, { path: "/" });
+  clearSession();
 });
 
 export const getCurrentTeam = createServerFn({ method: "GET" }).handler(async () => {
@@ -122,6 +123,60 @@ export const getCurrentTeam = createServerFn({ method: "GET" }).handler(async ()
   return { team, currentUserId: user.user_id, members, invitations };
 });
 
+// A lighter version of getCurrentTeam for pages that only need the team's
+// own fields (currency, hourly rate, the budget toggle) — not the member
+// list or pending invitations. Several pages call this just to format
+// money correctly; there's no reason for that to also fetch every member
+// and invitation on the team every time.
+export const getTeamSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireCurrentUser(getRequest());
+  const team = await getTeamById(user.team_id);
+  if (!team) throw new Error("Team not found.");
+  return team;
+});
+
+export const getMyTeamMemberships = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireCurrentUser(getRequest());
+  const memberships = await getTeamMembershipsForUser(user.user_id);
+  return memberships.map((membership) => ({
+    ...membership,
+    isActive: membership.team_id === user.team_id,
+  }));
+});
+
+export const switchActiveTeam = createServerFn({ method: "POST" })
+  .validator(z.object({ teamId: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    // requireActiveRole re-checks membership live in the database — never trust
+    // a client-supplied teamId on its own, since this app deals with financial data.
+    // Runs alongside getTeamById rather than after it — neither depends on the other.
+    const [role, team] = await Promise.all([
+      requireActiveRole(user.user_id, data.teamId, "member"),
+      getTeamById(data.teamId),
+    ]);
+    if (!team) throw new Error("Team not found.");
+
+    const switched: AppUser = { ...user, team_id: team.id, team_name: team.name, role };
+    await establishSession(switched);
+    // Remembering the choice for next login isn't load-bearing for this switch —
+    // don't make the user wait on it.
+    void setLastActiveTeamId(user.user_id, team.id).catch(() => {});
+    return switched;
+  });
+
+export const createAdditionalTeam = createServerFn({ method: "POST" })
+  .validator(z.object({ teamName: z.string().trim().min(1, "Enter a team name.").max(120) }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    const team = await createTeamWithOwner(user.user_id, data.teamName);
+
+    const switched: AppUser = { ...user, team_id: team.id, team_name: team.name, role: "owner" };
+    await establishSession(switched);
+    void setLastActiveTeamId(user.user_id, team.id).catch(() => {});
+    return switched;
+  });
+
 export const inviteMember = createServerFn({ method: "POST" })
   .validator(z.object({ email: z.string().trim().toLowerCase().email("Enter a valid email.") }))
   .handler(async ({ data }) => {
@@ -129,6 +184,13 @@ export const inviteMember = createServerFn({ method: "POST" })
     const invitation = await createInvitation(user.team_id, data.email, user.user_id);
     const origin = new URL(getRequest().url).origin;
     return { email: data.email, inviteUrl: `${origin}/invite/${invitation.token}` };
+  });
+
+export const revokeInvitation = createServerFn({ method: "POST" })
+  .validator(z.object({ invitationId: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    await deleteInvitation(user.team_id, data.invitationId);
   });
 
 export const getInvitationDetails = createServerFn({ method: "GET" })
@@ -148,7 +210,9 @@ export const getInvitationDetails = createServerFn({ method: "GET" })
       teamName: invitation.team_name,
       invitedByName: invitation.invited_by_name,
       hasAccount: Boolean(authUser),
-      viewerMatches: Boolean(currentUser && currentUser.email.toLowerCase() === invitation.email.toLowerCase()),
+      viewerMatches: Boolean(
+        currentUser && currentUser.email.toLowerCase() === invitation.email.toLowerCase(),
+      ),
     };
   });
 
@@ -162,11 +226,14 @@ export const createAccountFromInvitation = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const invitation = await getInvitationByToken(data.token);
-    if (!invitation || invitation.status !== "pending") throw new Error("This invitation is no longer valid.");
-    if (new Date(invitation.expires_at) < new Date()) throw new Error("This invitation has expired.");
+    if (!invitation || invitation.status !== "pending")
+      throw new Error("This invitation is no longer valid.");
+    if (new Date(invitation.expires_at) < new Date())
+      throw new Error("This invitation has expired.");
 
     const existing = await findAuthUserByEmail(invitation.email);
-    if (existing) throw new Error("An account with this email already exists. Sign in instead to accept.");
+    if (existing)
+      throw new Error("An account with this email already exists. Sign in instead to accept.");
 
     const authUser = await createAuthUser(invitation.email, data.password, data.name);
     await joinTeam(invitation.team_id, authUser.id);
@@ -189,7 +256,8 @@ export const respondToInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const currentUser = await requireCurrentUser(getRequest());
     const invitation = await getInvitationByToken(data.token);
-    if (!invitation || invitation.status !== "pending") throw new Error("This invitation is no longer valid.");
+    if (!invitation || invitation.status !== "pending")
+      throw new Error("This invitation is no longer valid.");
     if (invitation.email.toLowerCase() !== currentUser.email.toLowerCase()) {
       throw new Error("This invitation was sent to a different email address.");
     }
@@ -197,9 +265,27 @@ export const respondToInvitation = createServerFn({ method: "POST" })
       await markInvitationDeclined(invitation.id);
       return { joined: false };
     }
-    if (currentUser.team_id) throw new Error("You're already part of a team.");
-    await joinTeam(invitation.team_id, currentUser.user_id);
-    await markInvitationAccepted(invitation.id);
+    const existingMemberships = await getTeamMembershipsForUser(currentUser.user_id);
+    if (existingMemberships.some((membership) => membership.team_id === invitation.team_id)) {
+      throw new Error("You're already part of this team.");
+    }
+    // These three don't depend on each other's results, so run them together.
+    const [, , team] = await Promise.all([
+      joinTeam(invitation.team_id, currentUser.user_id),
+      markInvitationAccepted(invitation.id),
+      getTeamById(invitation.team_id),
+    ]);
+
+    // Joining a team you're not already in is a deliberate action — make it
+    // the active team so the user lands somewhere that reflects what they just did.
+    const switched: AppUser = {
+      ...currentUser,
+      team_id: invitation.team_id,
+      team_name: team?.name ?? invitation.team_name,
+      role: "member",
+    };
+    await establishSession(switched);
+    void setLastActiveTeamId(currentUser.user_id, invitation.team_id).catch(() => {});
     return { joined: true };
   });
 
@@ -225,6 +311,13 @@ export const updateTeam = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(120).optional(),
       standardHourlyRate: z.number().min(0).nullable().optional(),
+      currency: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/, "Enter a valid 3-letter currency code.")
+        .optional(),
+      budgetFeatureEnabled: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -232,8 +325,48 @@ export const updateTeam = createServerFn({ method: "POST" })
     await requireActiveRole(user.user_id, user.team_id, "owner");
     await updateTeamSettings(user.team_id, {
       ...(data.name !== undefined ? { name: data.name } : {}),
-      ...(data.standardHourlyRate !== undefined ? { standard_hourly_rate: data.standardHourlyRate } : {}),
+      ...(data.standardHourlyRate !== undefined
+        ? { standard_hourly_rate: data.standardHourlyRate }
+        : {}),
+      ...(data.currency !== undefined ? { currency: data.currency } : {}),
+      ...(data.budgetFeatureEnabled !== undefined
+        ? { budget_feature_enabled: data.budgetFeatureEnabled }
+        : {}),
     });
+  });
+
+export const getBudgets = createServerFn({ method: "GET" })
+  .validator(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/, "Enter a valid month.") }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    return getBudgetsForMonth(user.team_id, data.month);
+  });
+
+export const saveBudget = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      category: z.string().trim().min(1).max(80).nullable(),
+      month: z.string().regex(/^\d{4}-\d{2}$/, "Enter a valid month."),
+      amount: z.number().min(0),
+      currency: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/, "Enter a valid 3-letter currency code."),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    await requireActiveRole(user.user_id, user.team_id, "owner");
+    return upsertBudget(user.team_id, user.user_id, data);
+  });
+
+export const removeBudget = createServerFn({ method: "POST" })
+  .validator(z.object({ budgetId: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    await requireActiveRole(user.user_id, user.team_id, "owner");
+    await deleteBudget(user.team_id, data.budgetId);
   });
 
 export const logTime = createServerFn({ method: "POST" })
@@ -295,6 +428,24 @@ export const changePassword = createServerFn({ method: "POST" })
     await updateUserPassword(user.user_id, data.newPassword);
   });
 
+export const deleteAccount = createServerFn({ method: "POST" })
+  .validator(z.object({ password: z.string().min(1, "Enter your password.") }))
+  .handler(async ({ data }) => {
+    const user = await requireCurrentUser(getRequest());
+    const verified = await verifyPassword(user.email, data.password);
+    if (!verified) throw new Error("Your password is incorrect.");
+
+    const blocking = await getBlockingOwnerships(user.user_id);
+    if (blocking.length > 0) {
+      throw new Error(
+        `You're the only owner of ${blocking.join(", ")}. Promote another member to owner there before deleting your account.`,
+      );
+    }
+
+    await deleteAccountForUser(user.user_id);
+    clearSession();
+  });
+
 export const requestPasswordReset = createServerFn({ method: "POST" })
   .validator(z.object({ email: z.string().trim().toLowerCase().email("Enter a valid email.") }))
   .handler(async ({ data }) => {
@@ -322,7 +473,7 @@ export const confirmPasswordReset = createServerFn({ method: "POST" })
     await updateUserPassword(authUser.id, data.newPassword);
 
     const profile = await getUserProfile(authUser.id);
-    const team = await getActiveTeamForUser(authUser.id);
+    const team = await resolveInitialTeamForUser(authUser.id);
     if (!profile || !team) {
       return { signedIn: false };
     }
