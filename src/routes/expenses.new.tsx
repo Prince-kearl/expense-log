@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Camera, FileText, Plus, Save, UploadCloud, X } from "lucide-react";
+import { Camera, FileText, Plus, Save, Settings2, UploadCloud, Wallet, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { BudgetDialog, BudgetProgressBar } from "@/components/budget-controls";
 import {
   Card,
   PageHeader,
@@ -12,7 +13,13 @@ import {
   fieldClass,
   labelClass,
 } from "@/components/expense-ui";
-import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import {
+  useBudgets,
+  useCurrentUser,
+  useExpenseConfiguration,
+  useExpenses,
+  useTeamSettings,
+} from "@/lib/app-data";
 import { createExpense, createExpenseCategory, updateExpense } from "@/lib/expense-api.functions";
 import { cn } from "@/lib/utils";
 import {
@@ -87,9 +94,22 @@ function NewExpensePage() {
   const saveCategory = useServerFn(createExpenseCategory);
   const configuration = useExpenseConfiguration();
   const expenses = useExpenses();
-  const editingExpense = editExpenseId ? expenses.find((e) => e.expense_id === editExpenseId) : undefined;
+  const currentUser = useCurrentUser();
+  const isOwner = currentUser?.role === "owner";
+  const { currency: teamCurrency, budgetFeatureEnabled } = useTeamSettings();
+  const editingExpense = editExpenseId
+    ? expenses.find((e) => e.expense_id === editExpenseId)
+    : undefined;
   const [draft, setDraft] = useState<ExpenseDraft>(() => ({
-    amount: "", date: today(), description: "", category: "", subcategory: "", vendor: "", paymentMethod: "", account: "", notes: "",
+    amount: "",
+    date: today(),
+    description: "",
+    category: "",
+    subcategory: "",
+    vendor: "",
+    paymentMethod: "",
+    account: "",
+    notes: "",
   }));
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [newCategory, setNewCategory] = useState("");
@@ -104,12 +124,38 @@ function NewExpensePage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const categories = configuration.categories;
-  const subcategories = categories.find((item) => item.category === draft.category)?.subcategories ?? [];
+  const subcategories =
+    categories.find((item) => item.category === draft.category)?.subcategories ?? [];
+
+  // Budgets follow whichever month the expense date falls in — not always
+  // "today" — since backfilling a past month's expense should show that
+  // month's budget, not the current one.
+  const budgetMonth = (draft.date || today()).slice(0, 7);
+  const budgetMonthLabel = new Date(`${budgetMonth}-01T00:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  const { budgets, refetch: refetchBudgets } = useBudgets(budgetMonth);
+  const overallBudget = budgets.find((b) => b.category === null);
+  const categoryBudget = draft.category
+    ? budgets.find((b) => b.category === draft.category)
+    : undefined;
+  const budgetMonthExpenses = expenses.filter((e) => e.expense_date.startsWith(budgetMonth));
+  function spentForBudget(budget: { category: string | null; currency: string }) {
+    return budgetMonthExpenses
+      .filter(
+        (e) =>
+          e.currency === budget.currency &&
+          (budget.category === null || e.category === budget.category),
+      )
+      .reduce((sum, e) => sum + e.amount, 0);
+  }
 
   // Restoring a saved draft from localStorage must happen after mount (not in the
   // useState initializer) so the client's first render matches the server's SSR
@@ -147,9 +193,11 @@ function NewExpensePage() {
 
   useEffect(() => {
     const previews = new Map<File, string>();
-    receipts.filter((receipt) => receipt.type.startsWith("image/")).forEach((receipt) => {
-      previews.set(receipt, URL.createObjectURL(receipt));
-    });
+    receipts
+      .filter((receipt) => receipt.type.startsWith("image/"))
+      .forEach((receipt) => {
+        previews.set(receipt, URL.createObjectURL(receipt));
+      });
     setReceiptPreviews(previews);
     return () => previews.forEach((preview) => URL.revokeObjectURL(preview));
   }, [receipts]);
@@ -175,7 +223,9 @@ function NewExpensePage() {
           void cameraVideoRef.current.play();
         }
       })
-      .catch(() => setCameraError("Unable to access the camera. Allow camera permission and try again."));
+      .catch(() =>
+        setCameraError("Unable to access the camera. Allow camera permission and try again."),
+      );
     return () => {
       active = false;
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -186,7 +236,13 @@ function NewExpensePage() {
   function selectReceipts(files: Iterable<File>) {
     const selected = Array.from(files);
     if (!selected.length) return;
-    if (selected.some((file) => !["image/jpeg", "image/png", "application/pdf"].includes(file.type) || file.size > 10 * 1024 * 1024)) {
+    if (
+      selected.some(
+        (file) =>
+          !["image/jpeg", "image/png", "application/pdf"].includes(file.type) ||
+          file.size > 10 * 1024 * 1024,
+      )
+    ) {
       setSubmitError("Receipts must be a JPG, PNG, or PDF no larger than 10 MB.");
       return;
     }
@@ -213,23 +269,32 @@ function NewExpensePage() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setCameraError("Unable to capture the photo.");
-        return;
-      }
-      selectReceipts([new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" })]);
-      setCameraOpen(false);
-    }, "image/jpeg", 0.9);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError("Unable to capture the photo.");
+          return;
+        }
+        selectReceipts([new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" })]);
+        setCameraOpen(false);
+      },
+      "image/jpeg",
+      0.9,
+    );
   }
 
   async function addCategory() {
-    const subcategoriesToCreate = [...new Set(newSubcategories.map((value) => value.trim()).filter(Boolean))];
+    const subcategoriesToCreate = [
+      ...new Set(newSubcategories.map((value) => value.trim()).filter(Boolean)),
+    ];
     if (!newCategory.trim() || !subcategoriesToCreate.length) {
       setCategoryError("Enter a category and at least one subcategory.");
       return;
     }
-    if (subcategoriesToCreate.length !== newSubcategories.map((value) => value.trim()).filter(Boolean).length) {
+    if (
+      subcategoriesToCreate.length !==
+      newSubcategories.map((value) => value.trim()).filter(Boolean).length
+    ) {
       setCategoryError("Each subcategory must be unique.");
       return;
     }
@@ -258,7 +323,8 @@ function NewExpensePage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const next: FormErrors = {};
-    if (!draft.amount || Number(draft.amount) <= 0) next.amount = "Enter an amount greater than zero.";
+    if (!draft.amount || Number(draft.amount) <= 0)
+      next.amount = "Enter an amount greater than zero.";
     if (!draft.date) next.date = "Select the expense date.";
     if (!draft.description.trim()) next.description = "Add a short description.";
     if (!draft.category) next.category = "Choose a category.";
@@ -277,7 +343,10 @@ function NewExpensePage() {
             description: draft.description,
             category: draft.category,
             subcategory: draft.subcategory,
-            currency: "GHC",
+            // Preserve the expense's original currency rather than the
+            // team's current default — editing shouldn't silently relabel
+            // historical spend if the team's currency changed since.
+            currency: editingExpense?.currency ?? teamCurrency,
             vendor: draft.vendor,
             paymentMethod: draft.paymentMethod,
             account: draft.account,
@@ -288,7 +357,7 @@ function NewExpensePage() {
       } else {
         const formData = new FormData();
         formData.set("amount", draft.amount);
-        formData.set("currency", "GHC");
+        formData.set("currency", teamCurrency);
         formData.set("expense_date", draft.date);
         formData.set("description", draft.description);
         formData.set("category", draft.category);
@@ -303,7 +372,9 @@ function NewExpensePage() {
         navigate({ to: "/expenses/$expenseId", params: { expenseId: expense.expense_id } });
       }
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Unable to save the expense. Please try again.");
+      setSubmitError(
+        error instanceof Error ? error.message : "Unable to save the expense. Please try again.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -313,7 +384,11 @@ function NewExpensePage() {
     <AppShell>
       <PageHeader
         title={isEditing ? "Edit Expense" : "Add Expense"}
-        subtitle={isEditing ? "Update the details for this expense." : "Record a new expense for the organization."}
+        subtitle={
+          isEditing
+            ? "Update the details for this expense."
+            : "Record a new expense for the organization."
+        }
         actions={
           <SecondaryButton
             type="button"
@@ -329,12 +404,74 @@ function NewExpensePage() {
         }
       />
 
+      {budgetFeatureEnabled ? (
+        <Card className="mb-5 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-[17px] font-semibold text-foreground">
+                Budget — {budgetMonthLabel}
+              </h2>
+            </div>
+            {isOwner ? (
+              <SecondaryButton
+                type="button"
+                onClick={() => setBudgetDialogOpen(true)}
+                className="h-9 gap-2 px-4 text-[14px]"
+              >
+                <Settings2 className="h-4 w-4" />
+                Set Budgets
+              </SecondaryButton>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-[13px] text-muted-foreground">Overall</p>
+              {overallBudget ? (
+                <div className="mt-2">
+                  <BudgetProgressBar
+                    spent={spentForBudget(overallBudget)}
+                    amount={overallBudget.amount}
+                    currency={overallBudget.currency}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-[13px] text-muted-foreground">
+                  No overall budget set{isOwner ? " — set one above." : "."}
+                </p>
+              )}
+            </div>
+            {draft.category ? (
+              <div>
+                <p className="text-[13px] text-muted-foreground">{draft.category}</p>
+                {categoryBudget ? (
+                  <div className="mt-2">
+                    <BudgetProgressBar
+                      spent={spentForBudget(categoryBudget)}
+                      amount={categoryBudget.amount}
+                      currency={categoryBudget.currency}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    No budget set for {draft.category}
+                    {isOwner ? " — set one above." : "."}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
       <form onSubmit={submit} className="max-w-none">
         <Card className="p-4 sm:p-6 lg:p-8">
           <div className="grid gap-5 lg:grid-cols-3">
             <div>
               <label className={labelClass}>
-                Amount (GHC) <span className="text-destructive">*</span>
+                Amount ({editingExpense?.currency ?? teamCurrency}){" "}
+                <span className="text-destructive">*</span>
               </label>
               <input
                 value={draft.amount}
@@ -371,7 +508,9 @@ function NewExpensePage() {
               </label>
               <input
                 value={draft.description}
-                onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((current) => ({ ...current, description: e.target.value }))
+                }
                 placeholder="Enter an expense description"
                 className={fieldClass}
               />
@@ -387,7 +526,11 @@ function NewExpensePage() {
               <SelectField
                 value={draft.category}
                 onChange={(e) => {
-                  setDraft((current) => ({ ...current, category: e.target.value, subcategory: "" }));
+                  setDraft((current) => ({
+                    ...current,
+                    category: e.target.value,
+                    subcategory: "",
+                  }));
                 }}
               >
                 <option value="">Select category</option>
@@ -404,7 +547,9 @@ function NewExpensePage() {
               <label className={labelClass}>Subcategory</label>
               <SelectField
                 value={draft.subcategory}
-                onChange={(e) => setDraft((current) => ({ ...current, subcategory: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((current) => ({ ...current, subcategory: e.target.value }))
+                }
                 disabled={!draft.category}
                 className={cn(!draft.category && "opacity-60")}
               >
@@ -442,7 +587,9 @@ function NewExpensePage() {
               <label className={labelClass}>Payment Method</label>
               <SelectField
                 value={draft.paymentMethod}
-                onChange={(e) => setDraft((current) => ({ ...current, paymentMethod: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((current) => ({ ...current, paymentMethod: e.target.value }))
+                }
               >
                 <option value="">Select payment method</option>
                 {PAYMENT_METHODS.map((p) => (
@@ -469,74 +616,99 @@ function NewExpensePage() {
                     <p className="text-[13px] text-muted-foreground">No receipt attached.</p>
                   )}
                   <p className="text-[12px] text-muted-foreground">
-                    Receipts can&apos;t be changed here. Delete and recreate the expense to update them.
+                    Receipts can&apos;t be changed here. Delete and recreate the expense to update
+                    them.
                   </p>
                 </div>
               ) : (
-              <div className="space-y-3">
-                {receipts.length ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {receipts.map((receipt, index) => {
-                      const preview = receiptPreviews.get(receipt);
-                      return (
-                        <div key={`${receipt.name}-${receipt.lastModified}-${index}`} className="border border-border bg-muted/50 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="flex min-w-0 items-center gap-2 text-[14px] text-foreground">
-                              <FileText className="h-4 w-4 shrink-0 text-primary" />
-                              <span className="truncate">{receipt.name}</span>
-                            </span>
-                            <button type="button" onClick={() => setReceipts((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${receipt.name}`} className="rounded-full p-1 text-muted-foreground hover:bg-card hover:text-foreground">
-                              <X className="h-4 w-4" />
-                            </button>
+                <div className="space-y-3">
+                  {receipts.length ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {receipts.map((receipt, index) => {
+                        const preview = receiptPreviews.get(receipt);
+                        return (
+                          <div
+                            key={`${receipt.name}-${receipt.lastModified}-${index}`}
+                            className="border border-border bg-muted/50 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="flex min-w-0 items-center gap-2 text-[14px] text-foreground">
+                                <FileText className="h-4 w-4 shrink-0 text-primary" />
+                                <span className="truncate">{receipt.name}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReceipts((current) =>
+                                    current.filter((_, itemIndex) => itemIndex !== index),
+                                  )
+                                }
+                                aria-label={`Remove ${receipt.name}`}
+                                className="rounded-full p-1 text-muted-foreground hover:bg-card hover:text-foreground"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            {preview ? (
+                              <img
+                                src={preview}
+                                alt={`Preview of ${receipt.name}`}
+                                className="mt-3 h-36 w-full border border-border object-contain bg-card"
+                              />
+                            ) : (
+                              <p className="mt-3 border border-border bg-card px-3 py-2 text-[13px] text-muted-foreground">
+                                PDF receipt
+                              </p>
+                            )}
                           </div>
-                          {preview ? <img src={preview} alt={`Preview of ${receipt.name}`} className="mt-3 h-36 w-full border border-border object-contain bg-card" /> : <p className="mt-3 border border-border bg-card px-3 py-2 text-[13px] text-muted-foreground">PDF receipt</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    selectReceipts(e.dataTransfer.files);
-                  }}
-                  className={cn(
-                    "flex flex-col items-center justify-center border-2 border-dashed px-6 py-10 text-center transition-colors",
-                    dragging ? "border-primary bg-primary-soft/60" : "border-border bg-muted/30",
-                  )}
-                >
-                  <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                  <p className="mt-3 text-[15px] font-medium text-foreground">Drag &amp; drop receipt files here</p>
-                  <p className="mt-1 text-[13px] text-muted-foreground">
-                    PNG, JPG or PDF up to 10MB
-                  </p>
-                  <div className="mt-4 flex flex-wrap justify-center gap-3">
-                    <PrimaryButton type="button" onClick={() => fileInputRef.current?.click()}>
-                      <UploadCloud className="h-4 w-4" /> Browse files
-                    </PrimaryButton>
-                    <SecondaryButton type="button" onClick={() => setCameraOpen(true)}>
-                      <Camera className="h-4 w-4" /> Take photo
-                    </SecondaryButton>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,application/pdf"
-                    className="hidden"
-                    multiple
-                    onChange={(e) => {
-                      selectReceipts(e.target.files ?? []);
-                      e.currentTarget.value = "";
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragging(true);
                     }}
-                  />
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragging(false);
+                      selectReceipts(e.dataTransfer.files);
+                    }}
+                    className={cn(
+                      "flex flex-col items-center justify-center border-2 border-dashed px-6 py-10 text-center transition-colors",
+                      dragging ? "border-primary bg-primary-soft/60" : "border-border bg-muted/30",
+                    )}
+                  >
+                    <UploadCloud className="h-8 w-8 text-muted-foreground" />
+                    <p className="mt-3 text-[15px] font-medium text-foreground">
+                      Drag &amp; drop receipt files here
+                    </p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      PNG, JPG or PDF up to 10MB
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-3">
+                      <PrimaryButton type="button" onClick={() => fileInputRef.current?.click()}>
+                        <UploadCloud className="h-4 w-4" /> Browse files
+                      </PrimaryButton>
+                      <SecondaryButton type="button" onClick={() => setCameraOpen(true)}>
+                        <Camera className="h-4 w-4" /> Take photo
+                      </SecondaryButton>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,application/pdf"
+                      className="hidden"
+                      multiple
+                      onChange={(e) => {
+                        selectReceipts(e.target.files ?? []);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
               )}
             </div>
 
@@ -553,7 +725,9 @@ function NewExpensePage() {
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-border pt-6">
-            {submitError ? <p className="mr-auto text-[14px] text-destructive">{submitError}</p> : null}
+            {submitError ? (
+              <p className="mr-auto text-[14px] text-destructive">{submitError}</p>
+            ) : null}
             {isEditing && editExpenseId ? (
               <Link to="/expenses/$expenseId" params={{ expenseId: editExpenseId }}>
                 <SecondaryButton type="button">Cancel</SecondaryButton>
@@ -564,7 +738,8 @@ function NewExpensePage() {
               </Link>
             )}
             <PrimaryButton type="submit" disabled={isSaving}>
-              <Save className="h-4 w-4" /> {isSaving ? "Saving..." : isEditing ? "Save Changes" : "Save Expense"}
+              <Save className="h-4 w-4" />{" "}
+              {isSaving ? "Saving..." : isEditing ? "Save Changes" : "Save Expense"}
             </PrimaryButton>
           </div>
         </Card>
@@ -573,7 +748,9 @@ function NewExpensePage() {
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>Take receipt photo</DialogTitle>
-            <DialogDescription>Position the receipt in frame, then capture the image.</DialogDescription>
+            <DialogDescription>
+              Position the receipt in frame, then capture the image.
+            </DialogDescription>
           </DialogHeader>
           <div className="aspect-[4/3] overflow-hidden bg-foreground">
             {cameraError ? (
@@ -581,11 +758,19 @@ function NewExpensePage() {
                 {cameraError}
               </div>
             ) : (
-              <video ref={cameraVideoRef} className="h-full w-full object-cover" autoPlay playsInline muted />
+              <video
+                ref={cameraVideoRef}
+                className="h-full w-full object-cover"
+                autoPlay
+                playsInline
+                muted
+              />
             )}
           </div>
           <DialogFooter>
-            <SecondaryButton type="button" onClick={() => setCameraOpen(false)}>Cancel</SecondaryButton>
+            <SecondaryButton type="button" onClick={() => setCameraOpen(false)}>
+              Cancel
+            </SecondaryButton>
             <PrimaryButton type="button" disabled={Boolean(cameraError)} onClick={capturePhoto}>
               <Camera className="h-4 w-4" /> Capture photo
             </PrimaryButton>
@@ -598,11 +783,22 @@ function NewExpensePage() {
             <DialogTitle>Add category</DialogTitle>
             <DialogDescription>Create an active category for future expenses.</DialogDescription>
           </DialogHeader>
-          <label className={labelClass} htmlFor="new-category">Category name</label>
-          <input id="new-category" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} className={fieldClass} />
+          <label className={labelClass} htmlFor="new-category">
+            Category name
+          </label>
+          <input
+            id="new-category"
+            value={newCategory}
+            onChange={(event) => setNewCategory(event.target.value)}
+            className={fieldClass}
+          />
           <div className="flex items-center justify-between gap-3">
             <label className="text-[14px] font-medium text-foreground">Subcategories</label>
-            <button type="button" onClick={() => setNewSubcategories((current) => [...current, ""])} className="inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline">
+            <button
+              type="button"
+              onClick={() => setNewSubcategories((current) => [...current, ""])}
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline"
+            >
               <Plus className="h-3.5 w-3.5" /> Add another
             </button>
           </div>
@@ -611,12 +807,27 @@ function NewExpensePage() {
               <div key={index} className="flex gap-2">
                 <input
                   value={subcategoryName}
-                  onChange={(event) => setNewSubcategories((current) => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value))}
+                  onChange={(event) =>
+                    setNewSubcategories((current) =>
+                      current.map((value, itemIndex) =>
+                        itemIndex === index ? event.target.value : value,
+                      ),
+                    )
+                  }
                   placeholder={`Subcategory ${index + 1}`}
                   className={fieldClass}
                 />
                 {newSubcategories.length > 1 ? (
-                  <button type="button" onClick={() => setNewSubcategories((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove subcategory ${index + 1}`} className="rounded-full px-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewSubcategories((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                    aria-label={`Remove subcategory ${index + 1}`}
+                    className="rounded-full px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 ) : null}
@@ -625,13 +836,28 @@ function NewExpensePage() {
           </div>
           {categoryError ? <p className="text-[14px] text-destructive">{categoryError}</p> : null}
           <DialogFooter>
-            <SecondaryButton type="button" onClick={() => setCategoryOpen(false)}>Cancel</SecondaryButton>
+            <SecondaryButton type="button" onClick={() => setCategoryOpen(false)}>
+              Cancel
+            </SecondaryButton>
             <PrimaryButton type="button" disabled={isSavingCategory} onClick={addCategory}>
               {isSavingCategory ? "Saving..." : "Add category"}
             </PrimaryButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {budgetFeatureEnabled ? (
+        <BudgetDialog
+          open={budgetDialogOpen}
+          onClose={() => setBudgetDialogOpen(false)}
+          month={budgetMonth}
+          monthLabel={budgetMonthLabel}
+          categories={categories.map((c) => c.category)}
+          budgets={budgets}
+          currency={teamCurrency}
+          onSaved={refetchBudgets}
+        />
+      ) : null}
     </AppShell>
   );
 }
