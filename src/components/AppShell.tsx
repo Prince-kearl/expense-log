@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Bell,
   BarChart3,
@@ -7,25 +6,20 @@ import {
   Clock,
   FileText,
   Home,
-  KeyRound,
   LogOut,
-  Monitor,
-  Moon,
   MoreHorizontal,
   PlusCircle,
   Receipt,
-  Sun,
+  Settings as SettingsIcon,
   User,
   UserPlus,
   Users,
 } from "lucide-react";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { PrimaryButton, SecondaryButton, fieldClass, labelClass } from "@/components/expense-ui";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TeamSwitcher } from "@/components/account-controls";
 import { useCurrentUser, useNotifications, useRequireAuth } from "@/lib/app-data";
 import { formatHours, formatMoney, initials } from "@/lib/expenses";
-import { changePassword, type NotificationItem } from "@/lib/team-api.functions";
-import { useTheme, type Theme } from "@/lib/theme";
+import { type NotificationItem } from "@/lib/team-api.functions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -69,138 +63,12 @@ type MenuKey = "account" | "notifications";
 function useActiveNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (to: (typeof NAV)[number]["to"]) =>
-    to === "/expenses" ? pathname === "/expenses" : pathname === to || pathname.startsWith(`${to}/`);
-}
-
-const THEME_OPTIONS: { value: Theme; icon: typeof Monitor; label: string }[] = [
-  { value: "system", icon: Monitor, label: "Use system theme" },
-  { value: "light", icon: Sun, label: "Use light theme" },
-  { value: "dark", icon: Moon, label: "Use dark theme" },
-];
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-
-  return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 p-1">
-      {THEME_OPTIONS.map((option) => {
-        const Icon = option.icon;
-        const active = theme === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => setTheme(option.value)}
-            aria-label={option.label}
-            aria-pressed={active}
-            className={cn(
-              "flex h-8 w-10 items-center justify-center rounded-full transition-colors",
-              active
-                ? "bg-primary text-primary-foreground shadow-card"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const doChangePassword = useServerFn(changePassword);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function handleClose() {
-    setCurrentPassword("");
-    setNewPassword("");
-    setError("");
-    setSuccess(false);
-    onClose();
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-    try {
-      await doChangePassword({ data: { currentPassword, newPassword } });
-      setSuccess(true);
-      setCurrentPassword("");
-      setNewPassword("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to change your password.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>Change Password</DialogTitle>
-          <DialogDescription>Enter your current password and choose a new one.</DialogDescription>
-        </DialogHeader>
-        {success ? (
-          <>
-            <p className="text-[14px] text-success">Your password has been changed.</p>
-            <DialogFooter>
-              <SecondaryButton type="button" onClick={handleClose}>
-                Close
-              </SecondaryButton>
-            </DialogFooter>
-          </>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className={labelClass}>Current password</label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className={fieldClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>New password</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className={fieldClass}
-              />
-            </div>
-            {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
-            <DialogFooter>
-              <SecondaryButton type="button" onClick={handleClose}>
-                Cancel
-              </SecondaryButton>
-              <PrimaryButton type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save"}
-              </PrimaryButton>
-            </DialogFooter>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+    to === "/expenses"
+      ? pathname === "/expenses"
+      : pathname === to || pathname.startsWith(`${to}/`);
 }
 
 function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useCurrentUser> }) {
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-
   return (
     <>
       <div className="flex items-center gap-3">
@@ -216,18 +84,17 @@ function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useC
       </div>
 
       <div className="mt-4 border-t border-border pt-4">
-        <p className="mb-2 text-[13px] font-medium text-muted-foreground">Theme</p>
-        <ThemeToggle />
+        <p className="mb-2 text-[13px] font-medium text-muted-foreground">Team</p>
+        <TeamSwitcher currentUser={currentUser} />
       </div>
 
-      <button
-        type="button"
-        onClick={() => setChangePasswordOpen(true)}
+      <Link
+        to="/settings"
         className="mt-4 flex h-9 w-full items-center gap-3 text-left text-[15px] text-muted-foreground transition-colors hover:text-foreground"
       >
-        <KeyRound className="h-5 w-5" />
-        Change password
-      </button>
+        <SettingsIcon className="h-5 w-5" />
+        Settings
+      </Link>
 
       <a
         href="/api/auth/signout"
@@ -236,8 +103,6 @@ function AccountMenuPanel({ currentUser }: { currentUser: ReturnType<typeof useC
         <LogOut className="h-5 w-5" />
         Sign out
       </a>
-
-      <ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </>
   );
 }
@@ -275,8 +140,11 @@ function NotificationRow({ item }: { item: NotificationItem }) {
   const description =
     item.type === "expense" ? (
       <>
-        logged <span className="font-medium text-foreground">{formatMoney(item.amount, item.currency)}</span> for{" "}
-        {item.description}
+        logged{" "}
+        <span className="font-medium text-foreground">
+          {formatMoney(item.amount, item.currency)}
+        </span>{" "}
+        for {item.description}
       </>
     ) : item.type === "time" ? (
       <>
@@ -459,7 +327,9 @@ function MobileBottomNav() {
               )}
             >
               <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
-              {active ? <span className="truncate text-[13px] font-semibold">{item.label}</span> : null}
+              {active ? (
+                <span className="truncate text-[13px] font-semibold">{item.label}</span>
+              ) : null}
             </Link>
           );
         })}
