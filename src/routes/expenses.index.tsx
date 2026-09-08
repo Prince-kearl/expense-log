@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Plus, RotateCcw, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Plus, RotateCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
+  ExportMenu,
   PageHeader,
   PrimaryButton,
   SecondaryButton,
@@ -12,16 +13,29 @@ import {
   UserCell,
   fieldClass,
 } from "@/components/expense-ui";
-import { useExpenseConfiguration, useExpenses } from "@/lib/app-data";
+import {
+  useCurrentUser,
+  useExpenseConfiguration,
+  useExpenses,
+  useTeamSettings,
+} from "@/lib/app-data";
 import { downloadCsv } from "@/lib/csv";
 import { formatDate, formatMoney } from "@/lib/expenses";
+import { downloadExpenseReportPdf } from "@/lib/pdf-report";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/expenses/")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const currency = typeof search["currency"] === "string" ? search["currency"] : undefined;
+    return currency ? { currency } : {};
+  },
   head: () => ({
     meta: [
       { title: "Expenses — ExpenseTracker" },
-      { name: "description", content: "View, search and filter all recorded organizational expenses." },
+      {
+        name: "description",
+        content: "View, search and filter all recorded organizational expenses.",
+      },
       { property: "og:title", content: "Expenses — ExpenseTracker" },
       {
         property: "og:description",
@@ -33,17 +47,29 @@ export const Route = createFileRoute("/expenses/")({
 });
 
 function ExpensesPage() {
+  const currentUser = useCurrentUser();
+  const { currency: teamCurrency } = useTeamSettings();
   const expenses = useExpenses();
   const configuration = useExpenseConfiguration();
   const navigate = useNavigate();
+  const { currency: currencyFromUrl } = Route.useSearch();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [month, setMonth] = useState("all");
+  const [currency, setCurrency] = useState(currencyFromUrl ?? "all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const months = useMemo(
-    () => Array.from(new Set(expenses.map((e) => e.expense_date.slice(0, 7)))).sort().reverse(),
+    () =>
+      Array.from(new Set(expenses.map((e) => e.expense_date.slice(0, 7))))
+        .sort()
+        .reverse(),
+    [expenses],
+  );
+
+  const currencies = useMemo(
+    () => Array.from(new Set(expenses.map((e) => e.currency))).sort(),
     [expenses],
   );
 
@@ -52,6 +78,7 @@ function ExpensesPage() {
     return expenses
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) => (month === "all" ? true : e.expense_date.startsWith(month)))
+      .filter((e) => (currency === "all" ? true : e.currency === currency))
       .filter((e) =>
         q
           ? [e.description, e.vendor, e.category, e.created_by_name, e.expense_id]
@@ -61,16 +88,29 @@ function ExpensesPage() {
           : true,
       )
       .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
-  }, [expenses, query, category, month]);
+  }, [expenses, query, category, month, currency]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * pageSize, current * pageSize);
 
+  const filenameBase = `expenses${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}${month === "all" ? "" : `-${month}`}${currency === "all" ? "" : `-${currency.toLowerCase()}`}`;
+
   function exportExpenses() {
     downloadCsv(
-      `expenses${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}${month === "all" ? "" : `-${month}`}.csv`,
-      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund", "Submitted By"],
+      `${filenameBase}.csv`,
+      [
+        "Expense ID",
+        "Date",
+        "Description",
+        "Category",
+        "Amount",
+        "Currency",
+        "Vendor",
+        "Payment Method",
+        "Source of Fund",
+        "Submitted By",
+      ],
       filtered.map((e) => [
         e.expense_id,
         e.expense_date,
@@ -86,6 +126,41 @@ function ExpensesPage() {
     );
   }
 
+  function exportExpensesPdf() {
+    const totalSpending = filtered.reduce((sum, e) => sum + e.amount, 0);
+    const byCategory = Object.entries(
+      filtered.reduce<Record<string, number>>((acc, e) => {
+        acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+        return acc;
+      }, {}),
+    ).sort((a, b) => b[1] - a[1]);
+    const periodLabel =
+      month === "all"
+        ? "All Time"
+        : new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          });
+
+    downloadExpenseReportPdf({
+      teamName: currentUser?.team_name ?? "CoinTrail",
+      periodLabel,
+      categoryLabel: category === "all" ? undefined : category,
+      currency: teamCurrency,
+      totalSpending,
+      topCategory: byCategory[0] ? { name: byCategory[0][0], amount: byCategory[0][1] } : undefined,
+      rows: filtered.map((e) => ({
+        date: formatDate(e.expense_date),
+        description: e.description,
+        category: e.category,
+        submittedBy: e.created_by_name,
+        amount: e.amount,
+        currency: e.currency,
+      })),
+      filename: `${filenameBase}.pdf`,
+    });
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -93,9 +168,7 @@ function ExpensesPage() {
         subtitle="View and manage all recorded expenses."
         actions={
           <>
-            <SecondaryButton type="button" onClick={exportExpenses}>
-              <Download className="h-4 w-4" /> Export
-            </SecondaryButton>
+            <ExportMenu onExportPdf={exportExpensesPdf} onExportCsv={exportExpenses} />
             <Link to="/expenses/new">
               <PrimaryButton>
                 <Plus className="h-4 w-4" /> Add Expense
@@ -153,12 +226,32 @@ function ExpensesPage() {
             ))}
           </SelectField>
         </div>
+        {currencies.length > 1 ? (
+          <div className="w-full sm:w-[180px]">
+            <label className="mb-2 block text-[13px] text-muted-foreground">Currency</label>
+            <SelectField
+              value={currency}
+              onChange={(e) => {
+                setCurrency(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All Currencies</option>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+        ) : null}
         <SecondaryButton
           className="w-full justify-center sm:w-auto"
           onClick={() => {
             setQuery("");
             setCategory("all");
             setMonth("all");
+            setCurrency("all");
             setPage(1);
           }}
         >
@@ -179,7 +272,9 @@ function ExpensesPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {formatDate(e.expense_date)}
+                  </span>
                   <CategoryPill category={e.category} />
                 </div>
                 <div className="mt-2.5">

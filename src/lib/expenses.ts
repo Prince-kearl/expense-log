@@ -17,7 +17,7 @@ export type Expense = {
   account: string;
   notes: string;
   receipts: ExpenseReceipt[];
-  created_by_user_id: string;
+  created_by_user_id: string | null; // null once the creator's account has been deleted
   created_by_name: string;
   created_by_email: string;
   created_at: string;
@@ -59,7 +59,10 @@ function categoryTone(category: string) {
   }
   const reserved = Math.min(DEFAULT_CATEGORIES.length, CATEGORY_TONES.length);
   const remaining = CATEGORY_TONES.length - reserved;
-  const index = remaining > 0 ? reserved + (Math.abs(hash) % remaining) : Math.abs(hash) % CATEGORY_TONES.length;
+  const index =
+    remaining > 0
+      ? reserved + (Math.abs(hash) % remaining)
+      : Math.abs(hash) % CATEGORY_TONES.length;
   return CATEGORY_TONES[index]!;
 }
 
@@ -94,6 +97,62 @@ export const DEFAULT_CATEGORIES: { category: string; subcategories: string[] }[]
     ],
   },
 ];
+
+export type CurrencyTotal = { currency: string; total: number; count: number };
+
+/**
+ * Sums each currency present separately — never blended together, since
+ * amounts in different currencies can't be added into one meaningful number
+ * without a conversion rate. Sorted by total value, largest first.
+ */
+export function groupByCurrency(items: { amount: number; currency: string }[]): CurrencyTotal[] {
+  const totals = new Map<string, CurrencyTotal>();
+  for (const item of items) {
+    const existing = totals.get(item.currency) ?? { currency: item.currency, total: 0, count: 0 };
+    existing.total += item.amount;
+    existing.count += 1;
+    totals.set(item.currency, existing);
+  }
+  return [...totals.values()].sort((a, b) => b.total - a.total);
+}
+
+export type DominantCurrencyResult = {
+  /** The currency most of the money in this set is actually recorded in. */
+  currency: string;
+  /** True if any item didn't match `currency` — those are excluded from sums using it. */
+  isMixed: boolean;
+  /** How many items were excluded because they're in a different currency. */
+  excludedCount: number;
+  /** Every other currency present, each summed on its own — never blended with `currency`. */
+  otherTotals: CurrencyTotal[];
+};
+
+/**
+ * Money recorded in different currencies can't be added together into one
+ * meaningful number without a conversion rate — and this app deliberately
+ * doesn't fabricate exchange rates for financial data. So instead of summing
+ * everything and slapping the team's current currency label on the result
+ * (wrong the moment currencies differ), figure out which currency actually
+ * accounts for the most money here, and report the rest as their own totals
+ * rather than silently dropping them.
+ */
+export function findDominantCurrency(
+  items: { amount: number; currency: string }[],
+): DominantCurrencyResult {
+  const grouped = groupByCurrency(items);
+  const dominant = grouped[0];
+  if (!dominant || grouped.length <= 1) {
+    return {
+      currency: dominant?.currency ?? "GHS",
+      isMixed: false,
+      excludedCount: 0,
+      otherTotals: [],
+    };
+  }
+  const otherTotals = grouped.slice(1);
+  const excludedCount = otherTotals.reduce((sum, group) => sum + group.count, 0);
+  return { currency: dominant.currency, isMixed: true, excludedCount, otherTotals };
+}
 
 export function formatMoney(amount: number, currency = "GHS") {
   return `${currency} ${amount.toLocaleString("en-US", {
@@ -159,7 +218,10 @@ export function buildMonthlyTrend(
     const cursor = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthExpenses = expenses.filter((expense) => {
       const expenseDate = new Date(`${expense.expense_date}T00:00:00`);
-      return expenseDate.getFullYear() === cursor.getFullYear() && expenseDate.getMonth() === cursor.getMonth();
+      return (
+        expenseDate.getFullYear() === cursor.getFullYear() &&
+        expenseDate.getMonth() === cursor.getMonth()
+      );
     });
     points.push({
       label: cursor.toLocaleDateString("en-US", { month: "short" }),

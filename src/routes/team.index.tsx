@@ -1,10 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Copy, MoreVertical, Share2, UserPlus, Users } from "lucide-react";
+import { Check, Copy, MoreVertical, Share2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, PageHeader, PrimaryButton, SecondaryButton, fieldClass, labelClass } from "@/components/expense-ui";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Card,
+  PageHeader,
+  PrimaryButton,
+  SecondaryButton,
+  fieldClass,
+  labelClass,
+} from "@/components/expense-ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCurrentUser } from "@/lib/app-data";
 import { initials } from "@/lib/expenses";
 import {
@@ -12,6 +25,7 @@ import {
   inviteMember,
   promoteTeamMember,
   removeTeamMember,
+  revokeInvitation,
   updateTeam,
 } from "@/lib/team-api.functions";
 import { cn } from "@/lib/utils";
@@ -42,6 +56,70 @@ function CopyLinkButton({ url, label = "Copy Link" }: { url: string; label?: str
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       {copied ? "Copied!" : label}
     </SecondaryButton>
+  );
+}
+
+function RevokeInvitationButton({
+  invitationId,
+  onRevoked,
+}: {
+  invitationId: string;
+  onRevoked: () => void;
+}) {
+  const doRevoke = useServerFn(revokeInvitation);
+  const [confirming, setConfirming] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleRevoke() {
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await doRevoke({ data: { invitationId } });
+      onRevoked();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to revoke invitation.");
+      setIsSubmitting(false);
+      setConfirming(false);
+    }
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-[13px] text-muted-foreground">Revoke?</span>
+        <SecondaryButton
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="h-9 px-3 text-[14px]"
+        >
+          Cancel
+        </SecondaryButton>
+        <SecondaryButton
+          type="button"
+          onClick={handleRevoke}
+          disabled={isSubmitting}
+          className="h-9 gap-2 px-4 text-[14px] text-destructive hover:bg-destructive/10"
+        >
+          {isSubmitting ? "Revoking..." : "Confirm"}
+        </SecondaryButton>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-right">
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label="Revoke invitation"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+      >
+        <X className="h-4 w-4" />
+        Revoke
+      </button>
+      {error ? <p className="mt-1 text-[13px] text-destructive">{error}</p> : null}
+    </div>
   );
 }
 
@@ -133,13 +211,25 @@ function TeamPage() {
                   <tbody>
                     {team.invitations.map((invitation) => (
                       <tr key={invitation.id} className="border-b border-border/70 last:border-0">
-                        <td className="px-6 py-4 text-[15px] text-foreground">{invitation.email}</td>
-                        <td className="px-6 py-4 text-[15px] text-foreground">{invitation.invited_by_name}</td>
+                        <td className="px-6 py-4 text-[15px] text-foreground">
+                          {invitation.email}
+                        </td>
+                        <td className="px-6 py-4 text-[15px] text-foreground">
+                          {invitation.invited_by_name}
+                        </td>
                         <td className="px-6 py-4 text-[15px] text-muted-foreground capitalize">
                           {invitation.status}
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <CopyLinkButton url={`${window.location.origin}/invite/${invitation.token}`} />
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <CopyLinkButton
+                              url={`${window.location.origin}/invite/${invitation.token}`}
+                            />
+                            <RevokeInvitationButton
+                              invitationId={invitation.id}
+                              onRevoked={reload}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -226,7 +316,9 @@ function MemberRow({
         <span
           className={cn(
             "shrink-0 rounded-full px-3 py-1 text-[12px] font-medium",
-            member.role === "owner" ? "bg-primary-soft text-primary" : "bg-muted text-muted-foreground",
+            member.role === "owner"
+              ? "bg-primary-soft text-primary"
+              : "bg-muted text-muted-foreground",
           )}
         >
           {member.role === "owner" ? "Team Owner" : "Team Member"}
@@ -243,7 +335,11 @@ function MemberRow({
             </button>
             {menuOpen ? (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} aria-hidden />
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMenuOpen(false)}
+                  aria-hidden
+                />
                 <div className="absolute top-9 right-0 z-20 w-52 rounded-2xl border border-border bg-card p-1.5 text-left shadow-card">
                   {member.role !== "owner" ? (
                     <button
@@ -276,9 +372,9 @@ function MemberRow({
       {confirmingRemove ? (
         <div className="mt-3 rounded-2xl border border-border bg-muted/40 p-4">
           <p className="text-[14px] text-foreground">
-            Remove {member.name} from the team? {member.name} will no longer be able to access this team&apos;s
-            workspace. {member.name.split(" ")[0]}&apos;s previous expenses and time logs will remain in the
-            team&apos;s records.
+            Remove {member.name} from the team? {member.name} will no longer be able to access this
+            team&apos;s workspace. {member.name.split(" ")[0]}&apos;s previous expenses and time
+            logs will remain in the team&apos;s records.
           </p>
           <div className="mt-3 flex gap-2">
             <SecondaryButton
@@ -308,7 +404,9 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [inviteResult, setInviteResult] = useState<{ email: string; inviteUrl: string } | null>(null);
+  const [inviteResult, setInviteResult] = useState<{ email: string; inviteUrl: string } | null>(
+    null,
+  );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -370,8 +468,8 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
           <DialogHeader>
             <DialogTitle>Invitation Ready</DialogTitle>
             <DialogDescription>
-              Invite created successfully. Send this link to {inviteResult?.email} — through WhatsApp, Gmail,
-              Telegram, Messenger, SMS, Slack, or however you'd like.
+              Invite created successfully. Send this link to {inviteResult?.email} — through
+              WhatsApp, Gmail, Telegram, Messenger, SMS, Slack, or however you'd like.
             </DialogDescription>
           </DialogHeader>
           <div className="min-w-0 rounded-xl border border-border bg-muted/40 px-4 py-3">
@@ -380,7 +478,11 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
           <div className="flex flex-col gap-2 sm:flex-row">
             {inviteResult ? <CopyLinkButton url={inviteResult.inviteUrl} /> : null}
             {canShare() ? (
-              <SecondaryButton type="button" onClick={handleShare} className="h-9 gap-2 px-4 text-[14px]">
+              <SecondaryButton
+                type="button"
+                onClick={handleShare}
+                className="h-9 gap-2 px-4 text-[14px]"
+              >
                 <Share2 className="h-4 w-4" />
                 Share
               </SecondaryButton>
@@ -432,10 +534,19 @@ function TeamSettingsCard({
   return (
     <Card className="p-5">
       <h2 className="text-[17px] font-semibold text-foreground">Team Settings</h2>
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-4 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end"
+      >
         <div>
           <label className={labelClass}>Team name</label>
-          <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={fieldClass}
+          />
         </div>
         <div>
           <label className={labelClass}>Standard hourly rate</label>
@@ -449,7 +560,11 @@ function TeamSettingsCard({
             className={fieldClass}
           />
         </div>
-        <PrimaryButton type="submit" disabled={isSubmitting} className="w-full justify-center sm:w-auto">
+        <PrimaryButton
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full justify-center sm:w-auto"
+        >
           {isSubmitting ? "Saving..." : "Save"}
         </PrimaryButton>
       </form>

@@ -3,9 +3,25 @@ import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, CategoryPill, KpiCarousel, PageHeader, StatCard } from "@/components/expense-ui";
+import {
+  Card,
+  CategoryPill,
+  CurrencyChip,
+  InfoPopover,
+  KpiCarousel,
+  PageHeader,
+  StatCard,
+} from "@/components/expense-ui";
 import { downloadCsv } from "@/lib/csv";
-import { buildMonthlyTrend, formatDate, formatHours, formatMoney, formatMoneyShort, initials } from "@/lib/expenses";
+import {
+  buildMonthlyTrend,
+  findDominantCurrency,
+  formatDate,
+  formatHours,
+  formatMoney,
+  formatMoneyShort,
+  initials,
+} from "@/lib/expenses";
 import { getMemberOverview } from "@/lib/team-api.functions";
 
 function buildMonthlyHoursTrend(timeEntries: Overview["timeEntries"], monthsBack: number) {
@@ -16,10 +32,16 @@ function buildMonthlyHoursTrend(timeEntries: Overview["timeEntries"], monthsBack
     const monthHours = timeEntries
       .filter((entry) => {
         const entryDate = new Date(`${entry.entry_date}T00:00:00`);
-        return entryDate.getFullYear() === cursor.getFullYear() && entryDate.getMonth() === cursor.getMonth();
+        return (
+          entryDate.getFullYear() === cursor.getFullYear() &&
+          entryDate.getMonth() === cursor.getMonth()
+        );
       })
       .reduce((sum, entry) => sum + entry.hours, 0);
-    points.push({ label: cursor.toLocaleDateString("en-US", { month: "short" }), value: monthHours });
+    points.push({
+      label: cursor.toLocaleDateString("en-US", { month: "short" }),
+      value: monthHours,
+    });
   }
   return points;
 }
@@ -42,17 +64,40 @@ function MemberOverviewPage() {
   useEffect(() => {
     fetchOverview({ data: { userId } })
       .then(setOverview)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load this team member."));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Unable to load this team member."),
+      );
   }, [fetchOverview, userId]);
 
-  const totalExpenses = overview?.expenses.reduce((s, e) => s + e.amount, 0) ?? 0;
+  // Money in different currencies can't be summed into one meaningful number
+  // without a conversion rate, and this app doesn't fabricate exchange rates.
+  const {
+    currency,
+    isMixed: hasMixedCurrencies,
+    excludedCount,
+    otherTotals,
+  } = findDominantCurrency(overview?.expenses ?? []);
+  const expensesMoney = hasMixedCurrencies
+    ? (overview?.expenses ?? []).filter((e) => e.currency === currency)
+    : (overview?.expenses ?? []);
+  const totalExpenses = expensesMoney.reduce((s, e) => s + e.amount, 0);
   const totalHours = overview?.timeEntries.reduce((s, e) => s + e.hours, 0) ?? 0;
 
   function exportExpenses() {
     if (!overview) return;
     downloadCsv(
       `${overview.member.name.toLowerCase().replace(/\s+/g, "-")}-expenses.csv`,
-      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund"],
+      [
+        "Expense ID",
+        "Date",
+        "Description",
+        "Category",
+        "Amount",
+        "Currency",
+        "Vendor",
+        "Payment Method",
+        "Source of Fund",
+      ],
       overview.expenses.map((e) => [
         e.expense_id,
         e.expense_date,
@@ -81,7 +126,10 @@ function MemberOverviewPage() {
       {error ? (
         <>
           <div className="mb-4">
-            <Link to="/team" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-primary hover:underline">
+            <Link
+              to="/team"
+              className="inline-flex items-center gap-1.5 text-[14px] font-medium text-primary hover:underline"
+            >
               <ArrowLeft className="h-4 w-4" /> Back to Team
             </Link>
           </div>
@@ -92,7 +140,10 @@ function MemberOverviewPage() {
       ) : !overview ? (
         <>
           <div className="mb-4">
-            <Link to="/team" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-primary hover:underline">
+            <Link
+              to="/team"
+              className="inline-flex items-center gap-1.5 text-[14px] font-medium text-primary hover:underline"
+            >
               <ArrowLeft className="h-4 w-4" /> Back to Team
             </Link>
           </div>
@@ -122,10 +173,35 @@ function MemberOverviewPage() {
           <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               label="Total Expenses"
-              value={formatMoneyShort(totalExpenses)}
+              labelExtra={
+                hasMixedCurrencies ? (
+                  <InfoPopover>
+                    Shown in <span className="font-semibold text-foreground">{currency}</span>, the
+                    currency most of this is recorded in — amounts can&apos;t be added across
+                    currencies without a conversion rate. {excludedCount}{" "}
+                    {excludedCount === 1 ? "expense" : "expenses"} in another currency{" "}
+                    {excludedCount === 1 ? "is" : "are"} totaled separately, below.
+                  </InfoPopover>
+                ) : undefined
+              }
+              value={formatMoneyShort(totalExpenses, currency)}
               tone="primary"
-              trend={buildMonthlyTrend(overview.expenses, 12, (m) => m.reduce((s, e) => s + e.amount, 0))}
-              trendValueFormatter={(v) => formatMoneyShort(v)}
+              trend={buildMonthlyTrend(expensesMoney, 12, (m) =>
+                m.reduce((s, e) => s + e.amount, 0),
+              )}
+              trendValueFormatter={(v) => formatMoneyShort(v, currency)}
+              secondaryValue={
+                otherTotals.length > 0 ? (
+                  <>
+                    {otherTotals.map((t) => (
+                      <CurrencyChip
+                        key={t.currency}
+                        label={formatMoneyShort(t.total, t.currency)}
+                      />
+                    ))}
+                  </>
+                ) : undefined
+              }
             />
             <StatCard
               label="Transactions"
@@ -158,7 +234,9 @@ function MemberOverviewPage() {
                 ) : null}
               </div>
               {overview.expenses.length === 0 ? (
-                <p className="px-6 pb-6 text-[14px] text-muted-foreground">No expenses logged yet.</p>
+                <p className="px-6 pb-6 text-[14px] text-muted-foreground">
+                  No expenses logged yet.
+                </p>
               ) : (
                 <div className="divide-y divide-border/70">
                   {[...overview.expenses]
@@ -171,9 +249,13 @@ function MemberOverviewPage() {
                         className="flex items-center gap-3 px-6 py-3.5 hover:bg-muted/40"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-medium text-foreground">{expense.description}</p>
+                          <p className="truncate text-[14px] font-medium text-foreground">
+                            {expense.description}
+                          </p>
                           <div className="mt-1 flex items-center gap-2">
-                            <span className="text-[12px] text-muted-foreground">{formatDate(expense.expense_date)}</span>
+                            <span className="text-[12px] text-muted-foreground">
+                              {formatDate(expense.expense_date)}
+                            </span>
                             <CategoryPill category={expense.category} />
                           </div>
                         </div>
@@ -209,8 +291,12 @@ function MemberOverviewPage() {
                     .map((entry) => (
                       <div key={entry.id} className="flex items-center gap-3 px-6 py-3.5">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-medium text-foreground">{entry.note}</p>
-                          <p className="mt-1 text-[12px] text-muted-foreground">{formatDate(entry.entry_date)}</p>
+                          <p className="truncate text-[14px] font-medium text-foreground">
+                            {entry.note}
+                          </p>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            {formatDate(entry.entry_date)}
+                          </p>
                         </div>
                         <p className="shrink-0 text-[14px] font-semibold whitespace-nowrap text-foreground">
                           {formatHours(entry.hours)}

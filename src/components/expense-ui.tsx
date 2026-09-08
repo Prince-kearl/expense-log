@@ -1,7 +1,17 @@
 import { Link } from "@tanstack/react-router";
 import { Children, useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Info,
+  Plus,
+} from "lucide-react";
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { categoryBadgeClass, initials } from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +51,12 @@ export function TeamAvatarStack({
             AVATAR_TONES[i % AVATAR_TONES.length],
           );
           const avatar = member.user_id ? (
-            <Link to="/team/$userId" params={{ userId: member.user_id }} title={member.name} className={avatarClass}>
+            <Link
+              to="/team/$userId"
+              params={{ userId: member.user_id }}
+              title={member.name}
+              className={avatarClass}
+            >
               {initials(member.name)}
             </Link>
           ) : (
@@ -155,8 +170,10 @@ function trendChangePercent(trend: StatTrendPoint[]) {
 
 export function StatCard({
   label,
+  labelExtra,
   value,
   deltaNote,
+  secondaryValue,
   trend,
   tone = "primary",
   periodLabel = "Past 12 months",
@@ -164,8 +181,14 @@ export function StatCard({
   trendValueFormatter = (v: number) => String(v),
 }: {
   label: string;
+  /** Small on-demand affordance next to the label — e.g. an InfoPopover
+   * explaining why the total is split across currencies. */
+  labelExtra?: ReactNode;
   value: string;
   deltaNote?: ReactNode;
+  /** Extra figures that don't fit into `value` — e.g. totals in other
+   * currencies that couldn't be summed into the headline number. */
+  secondaryValue?: ReactNode;
   trend: StatTrendPoint[];
   tone?: StatTone;
   periodLabel?: string;
@@ -179,10 +202,19 @@ export function StatCard({
   const last = trend[trend.length - 1];
 
   return (
-    <Card className={cn("relative overflow-hidden border bg-gradient-to-br via-card to-card p-4", from, border)}>
+    <Card
+      className={cn(
+        "relative overflow-hidden border bg-gradient-to-br via-card to-card p-4",
+        from,
+        border,
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-muted-foreground">{label}</p>
+          <div className="flex min-w-0 items-center gap-1">
+            <p className="truncate text-[13px] font-medium text-muted-foreground">{label}</p>
+            {labelExtra}
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
@@ -203,13 +235,20 @@ export function StatCard({
           <p className="mt-3 truncate text-[22px] leading-7 font-bold tracking-tight text-foreground sm:text-[19px] 2xl:text-[26px] 2xl:leading-8">
             {value}
           </p>
-          {deltaNote ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{deltaNote}</p> : null}
+          {deltaNote ? (
+            <p className="mt-1 truncate text-[13px] text-muted-foreground">{deltaNote}</p>
+          ) : null}
+          {secondaryValue ? (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">{secondaryValue}</div>
+          ) : null}
         </div>
 
         <div className="relative h-14 w-16 shrink-0 pt-5 sm:h-12 sm:w-14 sm:pt-4 2xl:h-20 2xl:w-28 2xl:pt-6">
           {last ? (
             <div className="absolute top-0 right-0 z-10 border border-border bg-card px-2 py-1 text-left whitespace-nowrap shadow-card">
-              <p className="text-[11px] font-semibold text-foreground">{trendValueFormatter(last.value)}</p>
+              <p className="text-[11px] font-semibold text-foreground">
+                {trendValueFormatter(last.value)}
+              </p>
               <p className="text-[10px] text-muted-foreground">{last.label}</p>
             </div>
           ) : null}
@@ -224,7 +263,12 @@ export function StatCard({
               <XAxis dataKey="label" hide />
               <YAxis hide domain={["dataMin", "dataMax"]} />
               {last ? (
-                <ReferenceLine x={last.label} stroke={stroke} strokeOpacity={0.4} strokeDasharray="2 3" />
+                <ReferenceLine
+                  x={last.label}
+                  stroke={stroke}
+                  strokeOpacity={0.4}
+                  strokeDasharray="2 3"
+                />
               ) : null}
               <Area
                 type="monotone"
@@ -317,7 +361,9 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">{actions}</div> : null}
+      {actions ? (
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">{actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -374,5 +420,99 @@ export function SelectField({ className, children, ...props }: ComponentProps<"s
       </select>
       <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
     </div>
+  );
+}
+
+export function ExportMenu({
+  onExportPdf,
+  onExportCsv,
+  className,
+}: {
+  onExportPdf: () => void;
+  onExportCsv: () => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={cn("relative", className)}>
+      <SecondaryButton
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full justify-center gap-2 sm:w-auto"
+      >
+        <Download className="h-4 w-4" />
+        Export
+        <ChevronDown className="h-3.5 w-3.5" />
+      </SecondaryButton>
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+          <div className="absolute top-12 right-0 z-20 w-48 rounded-2xl border border-border bg-card p-1.5 text-left shadow-card">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onExportPdf();
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] text-foreground hover:bg-muted"
+            >
+              <FileText className="h-4 w-4" />
+              PDF Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onExportCsv();
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] text-foreground hover:bg-muted"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              CSV
+            </button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A small on-demand explainer, tap-to-open (not hover-only, so it works on
+ * mobile) and closed by default — for context that matters but doesn't need
+ * to permanently occupy space on every visit, like why a total is split
+ * across currencies. Prefer this over a persistent banner once the relevant
+ * numbers are already visible some other way (e.g. currency chips).
+ */
+export function InfoPopover({ children }: { children: ReactNode }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="More info"
+          className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-64 rounded-xl border-border bg-card p-3 text-[12px] leading-5 text-muted-foreground shadow-card"
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** A small pill showing a total in a currency that couldn't be folded into
+ * the card's headline number. Wrap in a `<Link>` where a filtered view exists. */
+export function CurrencyChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted">
+      + {label}
+    </span>
   );
 }

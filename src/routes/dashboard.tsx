@@ -16,16 +16,25 @@ import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
+  CurrencyChip,
+  InfoPopover,
   KpiCarousel,
   PageHeader,
   StatCard,
   TeamAvatarStack,
   UserCell,
 } from "@/components/expense-ui";
-import { useCurrentUser, useExpenses, useTeamMembers } from "@/lib/app-data";
+import {
+  useBudgets,
+  useCurrentUser,
+  useExpenses,
+  useTeamMembers,
+  useTeamSettings,
+} from "@/lib/app-data";
 import {
   buildMonthlyTrend,
   categoryColor,
+  findDominantCurrency,
   formatDate,
   formatMoney,
   formatMoneyShort,
@@ -61,34 +70,70 @@ function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
+  const currentMonthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const { budgetFeatureEnabled } = useTeamSettings();
+  const { budgets } = useBudgets(currentMonthKey);
+  const overallBudget = budgets.find((b) => b.category === null);
   const [chartRange, setChartRange] = useState<(typeof CHART_RANGES)[number]>(12);
   const [greetingText, setGreetingText] = useState<string | null>(null);
   useEffect(() => {
     setGreetingText(greeting());
   }, []);
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const thisMonth = expenses
+  // Money in different currencies can't be summed into one meaningful number
+  // without a conversion rate, and this app doesn't fabricate exchange rates
+  // for financial data. So every total below is computed from whichever
+  // currency actually accounts for most of the money — never blended.
+  const {
+    currency,
+    isMixed: hasMixedCurrencies,
+    excludedCount,
+    otherTotals,
+  } = findDominantCurrency(expenses);
+  const moneyExpenses = hasMixedCurrencies
+    ? expenses.filter((e) => e.currency === currency)
+    : expenses;
+
+  const total = moneyExpenses.reduce((s, e) => s + e.amount, 0);
+  const thisMonth = moneyExpenses
     .filter((e) => {
       const d = new Date(`${e.expense_date}T00:00:00`);
       return d.getFullYear() === year && d.getMonth() === month;
     })
     .reduce((s, e) => s + e.amount, 0);
-  const prevMonth = expenses
+  const prevMonth = moneyExpenses
     .filter((e) => {
       const d = new Date(`${e.expense_date}T00:00:00`);
       return d.getFullYear() === year && d.getMonth() === month - 1;
     })
     .reduce((s, e) => s + e.amount, 0);
   const monthDelta = prevMonth ? ((thisMonth - prevMonth) / prevMonth) * 100 : 0;
-  const spendingTrend = buildMonthlyTrend(expenses, 12, (m) => m.reduce((s, e) => s + e.amount, 0));
+  // Spend against the budget's own currency, not necessarily the dominant
+  // one above — a budget only means something compared like-for-like.
+  const budgetSpent = overallBudget
+    ? expenses
+        .filter((e) => {
+          const d = new Date(`${e.expense_date}T00:00:00`);
+          return (
+            d.getFullYear() === year &&
+            d.getMonth() === month &&
+            e.currency === overallBudget.currency
+          );
+        })
+        .reduce((s, e) => s + e.amount, 0)
+    : 0;
+  const budgetShare =
+    overallBudget && overallBudget.amount > 0 ? (budgetSpent / overallBudget.amount) * 100 : 0;
+  const spendingTrend = buildMonthlyTrend(moneyExpenses, 12, (m) =>
+    m.reduce((s, e) => s + e.amount, 0),
+  );
   const countTrend = buildMonthlyTrend(expenses, 12, (m) => m.length);
 
   const chartData = spendingTrend.slice(-chartRange);
   const chartTotal = chartData.reduce((s, m) => s + m.value, 0);
 
   const byCategory = Object.entries(
-    expenses.reduce<Record<string, number>>((acc, e) => {
+    moneyExpenses.reduce<Record<string, number>>((acc, e) => {
       acc[e.category] = (acc[e.category] ?? 0) + e.amount;
       return acc;
     }, {}),
@@ -109,20 +154,42 @@ function DashboardPage() {
         overlapNext
       />
 
-      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
+      <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Expenses"
-          value={formatMoneyShort(total)}
+          labelExtra={
+            hasMixedCurrencies ? (
+              <InfoPopover>
+                Shown in <span className="font-semibold text-foreground">{currency}</span>, the
+                currency most of this is recorded in — amounts can&apos;t be added across currencies
+                without a conversion rate. {excludedCount}{" "}
+                {excludedCount === 1 ? "expense" : "expenses"} in another currency{" "}
+                {excludedCount === 1 ? "is" : "are"} totaled separately, below.
+              </InfoPopover>
+            ) : undefined
+          }
+          value={formatMoneyShort(total, currency)}
           tone="primary"
           trend={spendingTrend}
-          trendValueFormatter={(v) => formatMoneyShort(v)}
+          trendValueFormatter={(v) => formatMoneyShort(v, currency)}
+          secondaryValue={
+            otherTotals.length > 0 ? (
+              <>
+                {otherTotals.map((t) => (
+                  <Link key={t.currency} to="/expenses" search={{ currency: t.currency }}>
+                    <CurrencyChip label={formatMoneyShort(t.total, t.currency)} />
+                  </Link>
+                ))}
+              </>
+            ) : undefined
+          }
         />
         <StatCard
           label="This Month"
-          value={formatMoneyShort(thisMonth)}
+          value={formatMoneyShort(thisMonth, currency)}
           tone="success"
           trend={spendingTrend}
-          trendValueFormatter={(v) => formatMoneyShort(v)}
+          trendValueFormatter={(v) => formatMoneyShort(v, currency)}
           changePercent={monthDelta}
           deltaNote={`vs ${new Date(year, month - 1).toLocaleDateString("en-US", { month: "short" })}`}
         />
@@ -132,6 +199,16 @@ function DashboardPage() {
           tone="violet"
           trend={countTrend}
         />
+        {budgetFeatureEnabled && overallBudget ? (
+          <StatCard
+            label="Budget"
+            value={`${Math.round(budgetShare)}%`}
+            tone={budgetShare >= 80 ? "warning" : "success"}
+            trend={spendingTrend}
+            trendValueFormatter={(v) => formatMoneyShort(v, currency)}
+            deltaNote={`${formatMoneyShort(budgetSpent, overallBudget.currency)} of ${formatMoneyShort(overallBudget.amount, overallBudget.currency)}`}
+          />
+        ) : null}
       </KpiCarousel>
 
       {teamMembers.length > 0 ? (
@@ -164,7 +241,9 @@ function DashboardPage() {
           </div>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Total spending (past {chartRange} months):{" "}
-            <span className="font-semibold text-foreground">{formatMoneyShort(chartTotal)}</span>
+            <span className="font-semibold text-foreground">
+              {formatMoneyShort(chartTotal, currency)}
+            </span>
           </p>
           <div className="mt-6 h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -190,7 +269,9 @@ function DashboardPage() {
                   allowDecimals={false}
                   tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                   tickFormatter={(v: number) =>
-                    v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K` : v.toLocaleString()
+                    v >= 1000
+                      ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K`
+                      : v.toLocaleString()
                   }
                 />
                 <Tooltip
@@ -201,7 +282,7 @@ function DashboardPage() {
                     fontSize: 13,
                     boxShadow: "var(--shadow-elevated)",
                   }}
-                  formatter={(v: number) => [formatMoneyShort(v), "Spending"]}
+                  formatter={(v: number) => [formatMoneyShort(v, currency), "Spending"]}
                 />
                 <Area
                   type="monotone"
@@ -210,7 +291,12 @@ function DashboardPage() {
                   strokeWidth={2}
                   fill="url(#spendFill)"
                   dot={false}
-                  activeDot={{ r: 5, fill: "var(--primary)", stroke: "var(--background)", strokeWidth: 2 }}
+                  activeDot={{
+                    r: 5,
+                    fill: "var(--primary)",
+                    stroke: "var(--background)",
+                    strokeWidth: 2,
+                  }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -233,10 +319,7 @@ function DashboardPage() {
                     stroke="none"
                   >
                     {byCategory.map((entry) => (
-                      <Cell
-                        key={entry.name}
-                        fill={categoryColor(entry.name)}
-                      />
+                      <Cell key={entry.name} fill={categoryColor(entry.name)} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -245,7 +328,7 @@ function DashboardPage() {
                       border: "1px solid var(--border)",
                       fontSize: 13,
                     }}
-                    formatter={(v: number) => formatMoneyShort(v)}
+                    formatter={(v: number) => formatMoneyShort(v, currency)}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -258,7 +341,7 @@ function DashboardPage() {
                     style={{ backgroundColor: categoryColor(c.name) }}
                   />
                   <span className="flex-1 truncate text-foreground">{c.name}</span>
-                  <span className="text-foreground">{formatMoneyShort(c.value)}</span>
+                  <span className="text-foreground">{formatMoneyShort(c.value, currency)}</span>
                   <span className="w-12 text-right text-muted-foreground">
                     {((c.value / total) * 100).toFixed(1)}%
                   </span>
@@ -268,7 +351,9 @@ function DashboardPage() {
           </div>
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[15px]">
             <span className="font-medium text-foreground">Total</span>
-            <span className="font-semibold text-foreground">{formatMoneyShort(total)}</span>
+            <span className="font-semibold text-foreground">
+              {formatMoneyShort(total, currency)}
+            </span>
           </div>
         </Card>
       </div>
@@ -297,13 +382,19 @@ function DashboardPage() {
             {recent.map((e) => (
               <div
                 key={e.expense_id}
-                onClick={() => navigate({ to: "/expenses/$expenseId", params: { expenseId: e.expense_id } })}
+                onClick={() =>
+                  navigate({ to: "/expenses/$expenseId", params: { expenseId: e.expense_id } })
+                }
                 className="flex cursor-pointer items-start gap-3 py-4 transition-colors hover:bg-muted/60"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
+                  <p className="truncate text-[15px] font-medium text-foreground">
+                    {e.description}
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                    <span className="text-[13px] text-muted-foreground">
+                      {formatDate(e.expense_date)}
+                    </span>
                     <CategoryPill category={e.category} />
                   </div>
                   <div className="mt-2.5">

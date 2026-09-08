@@ -5,6 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import {
   Card,
   CategoryPill,
+  CurrencyChip,
+  InfoPopover,
   KpiCarousel,
   PageHeader,
   PrimaryButton,
@@ -15,10 +17,20 @@ import {
 } from "@/components/expense-ui";
 import { useExpenseConfiguration, useMyExpenses } from "@/lib/app-data";
 import { downloadCsv } from "@/lib/csv";
-import { buildMonthlyTrend, formatDate, formatMoney, formatMoneyShort } from "@/lib/expenses";
+import {
+  buildMonthlyTrend,
+  findDominantCurrency,
+  formatDate,
+  formatMoney,
+  formatMoneyShort,
+} from "@/lib/expenses";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/my-expenses")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const currency = typeof search["currency"] === "string" ? search["currency"] : undefined;
+    return currency ? { currency } : {};
+  },
   head: () => ({
     meta: [
       { title: "My Expenses — ExpenseTracker" },
@@ -42,34 +54,65 @@ function MyExpensesPage() {
   const mine = useMyExpenses();
   const configuration = useExpenseConfiguration();
   const navigate = useNavigate();
+  const { currency: currencyFromUrl } = Route.useSearch();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [currencyFilter, setCurrencyFilter] = useState(currencyFromUrl ?? "all");
 
-  const total = mine.reduce((s, e) => s + e.amount, 0);
-  const latest = mine.map((e) => e.expense_date).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
+  // Money in different currencies can't be summed into one meaningful number
+  // without a conversion rate, and this app doesn't fabricate exchange rates.
+  const {
+    currency,
+    isMixed: hasMixedCurrencies,
+    excludedCount,
+    otherTotals,
+  } = findDominantCurrency(mine);
+  const mineMoney = hasMixedCurrencies ? mine.filter((e) => e.currency === currency) : mine;
+
+  const total = mineMoney.reduce((s, e) => s + e.amount, 0);
+  const latest =
+    mine
+      .map((e) => e.expense_date)
+      .sort()
+      .at(-1) ?? new Date().toISOString().slice(0, 10);
   const monthKey = latest.slice(0, 7);
-  const thisMonth = mine
+  const thisMonth = mineMoney
     .filter((e) => e.expense_date.startsWith(monthKey))
     .reduce((s, e) => s + e.amount, 0);
-  const spendingTrend = buildMonthlyTrend(mine, 12, (m) => m.reduce((s, e) => s + e.amount, 0));
+  const spendingTrend = buildMonthlyTrend(mineMoney, 12, (m) =>
+    m.reduce((s, e) => s + e.amount, 0),
+  );
   const countTrend = buildMonthlyTrend(mine, 12, (m) => m.length);
+
+  const currencies = useMemo(() => Array.from(new Set(mine.map((e) => e.currency))).sort(), [mine]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return mine
       .filter((e) => (category === "all" ? true : e.category === category))
+      .filter((e) => (currencyFilter === "all" ? true : e.currency === currencyFilter))
       .filter((e) =>
         q
           ? [e.description, e.vendor, e.category, e.expense_id].join(" ").toLowerCase().includes(q)
           : true,
       )
       .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
-  }, [mine, query, category]);
+  }, [mine, query, category, currencyFilter]);
 
   function exportMyExpenses() {
     downloadCsv(
       `my-expenses${category === "all" ? "" : `-${category.toLowerCase().replace(/\s+/g, "-")}`}.csv`,
-      ["Expense ID", "Date", "Description", "Category", "Amount", "Currency", "Vendor", "Payment Method", "Source of Fund"],
+      [
+        "Expense ID",
+        "Date",
+        "Description",
+        "Category",
+        "Amount",
+        "Currency",
+        "Vendor",
+        "Payment Method",
+        "Source of Fund",
+      ],
       filtered.map((e) => [
         e.expense_id,
         e.expense_date,
@@ -108,18 +151,40 @@ function MyExpensesPage() {
       <KpiCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="My Total"
-          value={formatMoneyShort(total)}
+          labelExtra={
+            hasMixedCurrencies ? (
+              <InfoPopover>
+                Shown in <span className="font-semibold text-foreground">{currency}</span>, the
+                currency most of this is recorded in — amounts can&apos;t be added across currencies
+                without a conversion rate. {excludedCount}{" "}
+                {excludedCount === 1 ? "expense" : "expenses"} in another currency{" "}
+                {excludedCount === 1 ? "is" : "are"} totaled separately, below.
+              </InfoPopover>
+            ) : undefined
+          }
+          value={formatMoneyShort(total, currency)}
           tone="primary"
           trend={spendingTrend}
-          trendValueFormatter={(v) => formatMoneyShort(v)}
+          trendValueFormatter={(v) => formatMoneyShort(v, currency)}
           deltaNote="All time"
+          secondaryValue={
+            otherTotals.length > 0 ? (
+              <>
+                {otherTotals.map((t) => (
+                  <Link key={t.currency} to="/my-expenses" search={{ currency: t.currency }}>
+                    <CurrencyChip label={formatMoneyShort(t.total, t.currency)} />
+                  </Link>
+                ))}
+              </>
+            ) : undefined
+          }
         />
         <StatCard
           label="This Month"
-          value={formatMoneyShort(thisMonth)}
+          value={formatMoneyShort(thisMonth, currency)}
           tone="success"
           trend={spendingTrend}
-          trendValueFormatter={(v) => formatMoneyShort(v)}
+          trendValueFormatter={(v) => formatMoneyShort(v, currency)}
           deltaNote={new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
             month: "long",
             year: "numeric",
@@ -153,10 +218,24 @@ function MyExpensesPage() {
             ))}
           </SelectField>
         </div>
+        {currencies.length > 1 ? (
+          <div className="w-[180px]">
+            <label className="mb-2 block text-[13px] text-muted-foreground">Currency</label>
+            <SelectField value={currencyFilter} onChange={(e) => setCurrencyFilter(e.target.value)}>
+              <option value="all">All Currencies</option>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+        ) : null}
         <SecondaryButton
           onClick={() => {
             setQuery("");
             setCategory("all");
+            setCurrencyFilter("all");
           }}
         >
           <RotateCcw className="h-4 w-4" /> Reset
@@ -176,7 +255,9 @@ function MyExpensesPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-medium text-foreground">{e.description}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="text-[13px] text-muted-foreground">{formatDate(e.expense_date)}</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {formatDate(e.expense_date)}
+                  </span>
                   <CategoryPill category={e.category} />
                 </div>
               </div>
