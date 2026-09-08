@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getExpenseForTeam, getReceiptObject } from "@/lib/supabase-expenses.server";
-import { readCookie, readSession } from "@/lib/session.server";
+import { requireCurrentUser } from "@/lib/session.server";
 
 export const Route = createFileRoute("/api/receipts/$expenseId")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const user = await readSession(readCookie(request, "expense_tracker_session"));
-        if (!user) return new Response("Unauthorized", { status: 401 });
+        let user;
+        try {
+          user = await requireCurrentUser(request);
+        } catch {
+          return new Response("Unauthorized", { status: 401 });
+        }
 
         const expense = await getExpenseForTeam(user.team_id, params.expenseId);
         if (!expense) return new Response("Receipt not found", { status: 404 });
