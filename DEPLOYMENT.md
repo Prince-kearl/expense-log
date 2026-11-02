@@ -1,12 +1,30 @@
 # CoinTrail on Vercel
 
-## Why sign-in is failing
+## Option A (current setup): Vercel as a pass-through
+
+The app is published on Lovable at `https://tidy-ledger-receipt-hub.lovable.app`, and `vercel.json` proxies every Vercel request to it. No backend keys are needed on Vercel — sign-in, data, and receipts stay on Lovable Cloud.
+
+How to use it:
+
+1. The `vercel.json` rewrite lives in the repo, so any Vercel project connected to this repository picks it up on the next deployment.
+2. Redeploy on Vercel after pulling this change. No environment variables are required for this mode.
+3. Check that the Vercel project's build command still completes (the existing deployment already builds fine), and that the domain shows the app.
+
+Behavior through the pass-through:
+
+- All pages, server functions, and API routes are proxied, so cookies and requests stay same-origin on the Vercel domain.
+- Password-reset emails use the browser's `origin` header, so links point back at the Vercel domain. Invite links prefer `x-forwarded-host`, so they do too.
+- If Google OAuth is enabled, add the exact Vercel origin (for example `https://your-app.vercel.app`) to the auth provider's redirect allow-list, and register the same origin as an authorized redirect URI in the Google Cloud Console.
+
+Limitations: Lovable still runs the app; Vercel only forwards traffic. Publishing new changes through Lovable updates what Vercel serves automatically.
+
+## Option B: Move to a backend you control
 
 The current sign-in code uses `SUPABASE_SERVICE_ROLE_KEY` on the server for account and team operations. Vercel does not inherit Lovable Cloud's private settings. A missing key is a deployment configuration problem, not an incorrect password.
 
 The managed Cloud service key is not available for copying to Vercel. Refreshing the Cloud connection only repairs Lovable's environment. Do not substitute the public key for the service key, remove authorization checks, or put private keys in browser variables.
 
-## Move safely to a backend you control
+### Steps
 
 1. Create a separate, user-owned Supabase project for the Vercel app. This does not disconnect or change the existing Lovable Cloud backend.
 2. In Lovable, open **More → Database → Manage → Settings → Export project data**. In the Database card, choose **Export → Start export**, then download the export from the emailed link. It contains schema, data, and accounts with password hashes.
@@ -14,7 +32,7 @@ The managed Cloud service key is not available for copying to Vercel. Refreshing
 4. Download receipts separately through **More → Storage**. Database exports do not include storage files. Transfer them into a private `receipts` bucket, preserving object paths and access restrictions.
 5. Configure email delivery and sign-in/recovery URL settings on the destination. Allow the exact Vercel site's `/reset-password` URL. Provider settings and API keys are not included in the export.
 
-## Configure Vercel
+### Configure Vercel
 
 In the Vercel project, open **Settings → Environment Variables** and configure the destination settings for **Production** (and **Preview** if you use preview deployments):
 
@@ -29,11 +47,13 @@ In the Vercel project, open **Settings → Environment Variables** and configure
 
 Never use a `VITE_` prefix for the service key or session secret. Never commit real values to `.env.example`, source code, or Git. Public and server URLs must point to the same destination. A new session secret requires everyone to sign in again.
 
+Remove the Option A `vercel.json` rewrite (or delete `vercel.json`) before switching to this mode, otherwise traffic keeps being forwarded.
+
 Redeploy Vercel after saving settings: browser settings are included at build time, and previous deployments do not receive newly added environment variables automatically.
 
 The shared Vite configuration supports a Nitro Vercel preset, but the current app defaults to Cloudflare outside Lovable. Confirm the actual Vercel build target before deployment; the reported missing-key error does not establish that the rest of the deployment is configured correctly.
 
-## Before switching users over
+### Before switching users over
 
 - Confirm an existing account can sign in and remains signed in after refresh.
 - Confirm existing teams, expenses, and receipt downloads are present.
@@ -41,4 +61,4 @@ The shared Vite configuration supports a Nitro Vercel preset, but the current ap
 - Confirm team members cannot access another team's data.
 - Complete a password reset from a real email link and sign in with the new password.
 
-The migration and Vercel sign-in are not complete until these checks pass against the destination. No destination credentials or Vercel access have been provided yet.
+The migration and Vercel sign-in are not complete until these checks pass against the destination.
