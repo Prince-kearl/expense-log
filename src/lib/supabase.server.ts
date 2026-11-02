@@ -46,11 +46,27 @@ function required(name: string) {
 
 let client: SupabaseClient | null = null;
 
+function createServerClient() {
+  const key = required("SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(required("SUPABASE_URL"), key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      fetch: (input, init) => {
+        const headers = new Headers(input instanceof Request ? input.headers : undefined);
+        new Headers(init?.headers).forEach((value, name) => headers.set(name, value));
+        if (key.startsWith("sb_") && headers.get("Authorization") === `Bearer ${key}`) {
+          headers.delete("Authorization");
+        }
+        headers.set("apikey", key);
+        return fetch(input, { ...init, headers });
+      },
+    },
+  });
+}
+
 export function db() {
   if (!client) {
-    client = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    client = createServerClient();
   }
   return client;
 }
@@ -77,9 +93,7 @@ export async function createAuthUser(email: string, password: string, name: stri
 }
 
 export async function verifyPassword(email: string, password: string) {
-  const anon = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const anon = createServerClient();
   const { data, error } = await anon.auth.signInWithPassword({ email, password });
   if (error || !data.user) return null;
   return data.user;

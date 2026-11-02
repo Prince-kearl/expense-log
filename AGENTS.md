@@ -1,0 +1,3 @@
+Cloud schema changes live in Drizzle migrations; legacy supabase/migrations describe the pre-Cloud schema and must not be replayed on the managed database, because they omit grants and row-level security.
+The existing signed-cookie session remains the app authentication boundary; every team operation verifies live membership server-side.
+Server Supabase clients strip opaque API keys from Authorization and send them via apikey, preserving actual user bearer tokens, because opaque keys are not JWTs.
