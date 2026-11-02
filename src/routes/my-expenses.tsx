@@ -33,18 +33,12 @@ export const Route = createFileRoute("/my-expenses")({
   },
   head: () => ({
     meta: [
-      { title: "My Expenses — ExpenseTracker" },
-      {
-        name: "description",
-        content: "Track the expenses you submitted, their totals and approval status.",
-      },
-      { property: "og:title", content: "My Expenses — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "Track the expenses you submitted, their totals and approval status.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      {"title": "My Expenses — CoinTrail"},
+      {"name": "description", "content": "Track the expenses you submitted, their totals and approval status."},
+      {"property": "og:title", "content": "My Expenses — CoinTrail"},
+      {"property": "og:description", "content": "Track the expenses you submitted, their totals and approval status."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: MyExpensesPage,

@@ -38,18 +38,12 @@ export const Route = createFileRoute("/expenses/new")({
   },
   head: () => ({
     meta: [
-      { title: "Add Expense — ExpenseTracker" },
-      {
-        name: "description",
-        content: "Record a new company expense with category, vendor, payment details and receipt.",
-      },
-      { property: "og:title", content: "Add Expense — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "Record a new company expense with category, vendor, payment details and receipt.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      {"title": "Add Expense — CoinTrail"},
+      {"name": "description", "content": "Record a new company expense with category, vendor, payment details and receipt."},
+      {"property": "og:title", "content": "Add Expense — CoinTrail"},
+      {"property": "og:description", "content": "Record a new company expense with category, vendor, payment details and receipt."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: NewExpensePage,

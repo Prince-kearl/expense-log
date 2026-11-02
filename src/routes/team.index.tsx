@@ -126,8 +126,12 @@ function RevokeInvitationButton({
 export const Route = createFileRoute("/team/")({
   head: () => ({
     meta: [
-      { title: "Team — CoinTrail" },
-      { name: "description", content: "Manage who has access to your team's workspace." },
+      {"title": "Team — CoinTrail"},
+      {"name": "description", "content": "Manage who has access to your team's workspace."},
+      {"property": "og:title", "content": "Team — CoinTrail"},
+      {"property": "og:description", "content": "Manage who has access to your team's workspace."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: TeamPage,

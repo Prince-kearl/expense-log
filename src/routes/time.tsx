@@ -12,11 +12,12 @@ import { formatDate, formatHours, formatMoney, formatMoneyShort } from "@/lib/ex
 export const Route = createFileRoute("/time")({
   head: () => ({
     meta: [
-      { title: "Time Tracking — CoinTrail" },
-      {
-        name: "description",
-        content: "Log the hours you spend working on your role.",
-      },
+      {"title": "Time Tracking — CoinTrail"},
+      {"name": "description", "content": "Log the hours you spend working on your role."},
+      {"property": "og:title", "content": "Time Tracking — CoinTrail"},
+      {"property": "og:description", "content": "Log the hours you spend working on your role."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: TimeTrackingPage,

@@ -10,7 +10,14 @@ export const Route = createFileRoute("/reset-password")({
     return code ? { code } : {};
   },
   head: () => ({
-    meta: [{ title: "Reset your password — CoinTrail" }],
+    meta: [
+      {"title": "Reset your password — CoinTrail"},
+      {"name": "description", "content": "Reset your CoinTrail account password."},
+      {"property": "og:title", "content": "Reset your password — CoinTrail"},
+      {"property": "og:description", "content": "Reset your CoinTrail account password."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
+    ],
   }),
   component: ResetPasswordPage,
 });

@@ -31,16 +31,12 @@ export const Route = createFileRoute("/expenses/")({
   },
   head: () => ({
     meta: [
-      { title: "Expenses — ExpenseTracker" },
-      {
-        name: "description",
-        content: "View, search and filter all recorded organizational expenses.",
-      },
-      { property: "og:title", content: "Expenses — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "View, search and filter all recorded organizational expenses.",
-      },
+      {"title": "Expenses — CoinTrail"},
+      {"name": "description", "content": "View, search and filter all recorded organizational expenses."},
+      {"property": "og:title", "content": "Expenses — CoinTrail"},
+      {"property": "og:description", "content": "View, search and filter all recorded organizational expenses."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: ExpensesPage,

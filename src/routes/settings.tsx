@@ -41,8 +41,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — CoinTrail" },
-      { name: "description", content: "Manage your profile, team, and app preferences." },
+      {"title": "Settings — CoinTrail"},
+      {"name": "description", "content": "Manage your profile, team, and app preferences."},
+      {"property": "og:title", "content": "Settings — CoinTrail"},
+      {"property": "og:description", "content": "Manage your profile, team, and app preferences."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: SettingsPage,

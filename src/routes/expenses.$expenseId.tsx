@@ -34,18 +34,12 @@ import { formatDate, formatDateTime, formatMoney } from "@/lib/expenses";
 export const Route = createFileRoute("/expenses/$expenseId")({
   head: () => ({
     meta: [
-      { title: "Expense Details — ExpenseTracker" },
-      {
-        name: "description",
-        content: "Full details, audit history and receipt preview for a recorded expense.",
-      },
-      { property: "og:title", content: "Expense Details — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "Full details, audit history and receipt preview for a recorded expense.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      {"title": "Expense Details — CoinTrail"},
+      {"name": "description", "content": "Full details, audit history and receipt preview for a recorded expense."},
+      {"property": "og:title", "content": "Expense Details — CoinTrail"},
+      {"property": "og:description", "content": "Full details, audit history and receipt preview for a recorded expense."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: ExpenseDetailsPage,

@@ -11,8 +11,12 @@ export const Route = createFileRoute("/login")({
   },
   head: () => ({
     meta: [
-      { title: "Sign in — CoinTrail" },
-      { name: "description", content: "Sign in to record and track your organization's expenses." },
+      {"title": "Sign in — CoinTrail"},
+      {"name": "description", "content": "Sign in to record and track your organization's expenses."},
+      {"property": "og:title", "content": "Sign in — CoinTrail"},
+      {"property": "og:description", "content": "Sign in to record and track your organization's expenses."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: LoginPage,
