@@ -6,3 +6,4 @@
 - [x] Add password visibility controls to password forms.
 - [x] Repair recovery handling; verify email requests, password matching, invalid/expired links, and recovery authorization tests.
 - [ ] Verify email arrival and successful reset through a real inbox link — blocked by unavailable inbox access.
+- [ ] Restore Vercel sign-in using a user-controlled backend — blocked by destination backend setup, database/account export, receipt transfer, and Vercel configuration access.
