@@ -3,6 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { PrimaryButton, fieldClass, labelClass } from "@/components/expense-ui";
 import { confirmPasswordReset, requestPasswordReset } from "@/lib/team-api.functions";
+import { PasswordInput } from "@/components/password-input";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/reset-password")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -43,17 +45,38 @@ function ResetPasswordPage() {
   const { code } = Route.useSearch();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [checkedHash, setCheckedHash] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   // Supabase's recovery link can arrive either as ?code=... (PKCE) or as a
   // #access_token=...&type=recovery URL fragment (implicit flow) — fragments
   // are never sent to the server, so we can only read this client-side.
   useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    if (hash.get("type") === "recovery") {
-      setAccessToken(hash.get("access_token"));
+    let cancelled = false;
+    async function readRecovery() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      let token = hash.get("type") === "recovery" ? hash.get("access_token") : null;
+      let error = hash.has("error") || hash.has("error_code");
+      if (code) {
+        const result = await supabase.auth.exchangeCodeForSession(code);
+        token = result.data.session?.access_token ?? null;
+        error = Boolean(result.error) || !token;
+      }
+      // Remove recovery credentials from browser history after reading them.
+      if (window.location.hash || code) window.history.replaceState(null, "", "/reset-password");
+      if (!cancelled) {
+        setAccessToken(token);
+        if (error) setLinkError("This reset link is invalid or has expired. Request a new one below.");
+        setCheckedHash(true);
+      }
     }
-    setCheckedHash(true);
-  }, []);
+    readRecovery().catch(() => {
+      if (!cancelled) {
+        setLinkError("This reset link could not be opened. Request a new one below.");
+        setCheckedHash(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [code]);
 
   if (!checkedHash) {
     return (
@@ -63,16 +86,17 @@ function ResetPasswordPage() {
     );
   }
 
-  if (code || accessToken) {
+  if (accessToken) {
     return (
       <Shell>
-        <SetNewPasswordForm code={code} accessToken={accessToken ?? undefined} />
+        <SetNewPasswordForm accessToken={accessToken} />
       </Shell>
     );
   }
 
   return (
     <Shell>
+      {linkError ? <p role="alert" className="mt-6 text-[13px] text-destructive">{linkError}</p> : null}
       <RequestResetForm />
     </Shell>
   );
@@ -148,23 +172,26 @@ function RequestResetForm() {
 }
 
 function SetNewPasswordForm({
-  code,
   accessToken,
 }: {
-  code: string | undefined;
-  accessToken: string | undefined;
+  accessToken: string;
 }) {
   const doConfirm = useServerFn(confirmPasswordReset);
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (password !== confirmation) {
+      setError("Passwords do not match.");
+      return;
+    }
     setIsSubmitting(true);
     setError("");
     try {
-      const result = await doConfirm({ data: { newPassword: password, code, accessToken } });
+      const result = await doConfirm({ data: { newPassword: password, accessToken } });
       window.location.assign(result.signedIn ? "/dashboard" : "/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to reset your password.");
@@ -179,8 +206,7 @@ function SetNewPasswordForm({
       <form onSubmit={handleSubmit} className="mt-8 space-y-4 text-left">
         <div>
           <label className={labelClass}>New password</label>
-          <input
-            type="password"
+          <PasswordInput
             autoComplete="new-password"
             required
             minLength={8}
@@ -189,6 +215,10 @@ function SetNewPasswordForm({
             placeholder="At least 8 characters"
             className={fieldClass}
           />
+        </div>
+        <div>
+          <label className={labelClass}>Confirm new password</label>
+          <PasswordInput autoComplete="new-password" required minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={fieldClass} />
         </div>
         {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
         <PrimaryButton type="submit" disabled={isSubmitting} className="w-full justify-center">

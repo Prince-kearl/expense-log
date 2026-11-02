@@ -29,7 +29,6 @@ import {
   getTimeEntriesForTeam,
   getTimeEntriesForUser,
   getUserFromAccessToken,
-  getUserFromRecoveryCode,
   getUserProfile,
   insertTimeEntry,
   joinTeam,
@@ -45,6 +44,7 @@ import {
   setLastActiveTeamId,
   updateTeamSettings,
   updateUserPassword,
+  updateRecoveryPassword,
   upsertBudget,
   verifyPassword,
 } from "./supabase.server";
@@ -449,7 +449,9 @@ export const deleteAccount = createServerFn({ method: "POST" })
 export const requestPasswordReset = createServerFn({ method: "POST" })
   .validator(z.object({ email: z.string().trim().toLowerCase().email("Enter a valid email.") }))
   .handler(async ({ data }) => {
-    const origin = new URL(getRequest().url).origin;
+    const request = getRequest();
+    // Origin reflects the actual public page, even behind the preview proxy.
+    const origin = new URL(request.headers.get("origin") ?? request.url).origin;
     await sendPasswordResetEmail(data.email, `${origin}/reset-password`);
     // Always resolves the same way regardless of whether the email is registered.
   });
@@ -458,19 +460,14 @@ export const confirmPasswordReset = createServerFn({ method: "POST" })
   .validator(
     z.object({
       newPassword: z.string().min(8, "Password must be at least 8 characters."),
-      accessToken: z.string().min(1).optional(),
-      code: z.string().min(1).optional(),
+      accessToken: z.string().min(1).max(16000),
     }),
   )
   .handler(async ({ data }) => {
-    const authUser = data.accessToken
-      ? await getUserFromAccessToken(data.accessToken)
-      : data.code
-        ? await getUserFromRecoveryCode(data.code)
-        : null;
+    const authUser = await getUserFromAccessToken(data.accessToken);
     if (!authUser) throw new Error("This reset link is invalid or has expired. Request a new one.");
 
-    await updateUserPassword(authUser.id, data.newPassword);
+    await updateRecoveryPassword(data.accessToken, data.newPassword);
 
     const profile = await getUserProfile(authUser.id);
     const team = await resolveInitialTeamForUser(authUser.id);
