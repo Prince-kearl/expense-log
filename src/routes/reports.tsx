@@ -40,18 +40,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
-      { title: "Reports — ExpenseTracker" },
-      {
-        name: "description",
-        content: "Monthly spending trends, category breakdown and top spending categories.",
-      },
-      { property: "og:title", content: "Reports — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "Monthly spending trends, category breakdown and top spending categories.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      {"title": "Reports — CoinTrail"},
+      {"name": "description", "content": "Monthly spending trends, category breakdown and top spending categories."},
+      {"property": "og:title", "content": "Reports — CoinTrail"},
+      {"property": "og:description", "content": "Monthly spending trends, category breakdown and top spending categories."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: ReportsPage,

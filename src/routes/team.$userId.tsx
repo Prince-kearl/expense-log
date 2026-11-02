@@ -48,7 +48,14 @@ function buildMonthlyHoursTrend(timeEntries: Overview["timeEntries"], monthsBack
 
 export const Route = createFileRoute("/team/$userId")({
   head: () => ({
-    meta: [{ title: "Team Member — CoinTrail" }],
+    meta: [
+      {"title": "Team Member — CoinTrail"},
+      {"name": "description", "content": "Review a CoinTrail team member's expenses and logged time."},
+      {"property": "og:title", "content": "Team Member — CoinTrail"},
+      {"property": "og:description", "content": "Review a CoinTrail team member's expenses and logged time."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
+    ],
   }),
   component: MemberOverviewPage,
 });

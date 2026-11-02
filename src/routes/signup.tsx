@@ -7,8 +7,12 @@ import { signUp } from "@/lib/team-api.functions";
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "Create your account — CoinTrail" },
-      { name: "description", content: "Create your CoinTrail account and set up your team." },
+      {"title": "Create your account — CoinTrail"},
+      {"name": "description", "content": "Create your CoinTrail account and set up your team."},
+      {"property": "og:title", "content": "Create your account — CoinTrail"},
+      {"property": "og:description", "content": "Create your CoinTrail account and set up your team."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: SignUpPage,

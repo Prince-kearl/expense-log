@@ -45,16 +45,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — ExpenseTracker" },
-      {
-        name: "description",
-        content: "Live spending overview, category breakdown and recent organizational expenses.",
-      },
-      { property: "og:title", content: "Dashboard — ExpenseTracker" },
-      {
-        property: "og:description",
-        content: "Live spending overview, category breakdown and recent organizational expenses.",
-      },
+      {"title": "Dashboard — CoinTrail"},
+      {"name": "description", "content": "Live spending overview, category breakdown and recent organizational expenses."},
+      {"property": "og:title", "content": "Dashboard — CoinTrail"},
+      {"property": "og:description", "content": "Live spending overview, category breakdown and recent organizational expenses."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
     ],
   }),
   component: DashboardPage,

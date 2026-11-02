@@ -6,7 +6,14 @@ import { createAccountFromInvitation, getInvitationDetails, respondToInvitation 
 
 export const Route = createFileRoute("/invite/$token")({
   head: () => ({
-    meta: [{ title: "You've been invited — CoinTrail" }],
+    meta: [
+      {"title": "You've been invited — CoinTrail"},
+      {"name": "description", "content": "Accept your invitation to a CoinTrail team."},
+      {"property": "og:title", "content": "You've been invited — CoinTrail"},
+      {"property": "og:description", "content": "Accept your invitation to a CoinTrail team."},
+      {"property": "og:type", "content": "website"},
+      {"name": "twitter:card", "content": "summary_large_image"},
+    ],
   }),
   component: InvitePage,
 });
