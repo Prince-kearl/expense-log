@@ -39,6 +39,16 @@ function PrivacyPage() {
         <p><strong>Receipts:</strong> images or files you upload as proof of an expense.</p>
         <p>We do not collect location, contacts, advertising IDs, or device data beyond what is needed to keep you signed in.</p>
       </Section>
+      <Section title="Google sign-in">
+        <p>If you choose to sign in with Google, Google shares your name, email address and profile picture with CoinTrail. We use these only to create and identify your account.</p>
+        <p>We do not access your Gmail, Google Drive, contacts, calendar or any other Google data, and we never post on your behalf. You can revoke CoinTrail's access at any time from your Google Account's security settings.</p>
+      </Section>
+      <Section title="Expense data">
+        <p>Expenses you record (amount, currency, date, category, description and notes) are stored in our secure database and linked to your team. They are used to show dashboards, reports, budgets and exports to members of your team.</p>
+      </Section>
+      <Section title="Receipt storage">
+        <p>Receipt images and files are kept in private, encrypted cloud storage. They are not publicly accessible: each download is checked against your team membership on the server. Receipts are deleted when the expense or your team's data is removed.</p>
+      </Section>
       <Section title="How we use it">
         <p>Only to run the app: sign you in, show your team's expenses and reports, and send password-reset or invitation emails. We do not sell data, show ads, or share data with third parties for marketing.</p>
       </Section>
