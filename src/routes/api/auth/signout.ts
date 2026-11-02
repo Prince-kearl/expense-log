@@ -8,7 +8,7 @@ export const Route = createFileRoute("/api/auth/signout")({
         return new Response(null, {
           headers: {
             location: new URL("/login", url).toString(),
-            "set-cookie": `expense_tracker_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${url.protocol === "https:" ? "; Secure" : ""}`,
+            "set-cookie": `expense_tracker_session=; Path=/; HttpOnly; Max-Age=0${url.protocol === "https:" ? "; SameSite=None; Secure; Partitioned" : "; SameSite=Lax"}`,
           },
           status: 302,
         });

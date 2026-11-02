@@ -71,19 +71,23 @@ function isSecureRequest() {
   return getRequest().url.startsWith("https:");
 }
 
+// Over HTTPS the app may run embedded in another site's frame (e.g. the editor
+// preview), where SameSite=Lax cookies are dropped as third-party. SameSite=None
+// + Partitioned keeps the session working there and in normal top-level tabs.
+function cookieAttributes() {
+  const secure = isSecureRequest();
+  return secure
+    ? { httpOnly: true, sameSite: "none" as const, secure: true, partitioned: true, path: "/" }
+    : { httpOnly: true, sameSite: "lax" as const, secure: false, path: "/" };
+}
+
 export async function establishSession(user: AppUser) {
   const token = await createSession(user);
-  setCookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecureRequest(),
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
+  setCookie(SESSION_COOKIE, token, { ...cookieAttributes(), maxAge: 60 * 60 * 24 * 7 });
 }
 
 export function clearSession() {
-  deleteCookie(SESSION_COOKIE, { path: "/" });
+  deleteCookie(SESSION_COOKIE, cookieAttributes());
 }
 
 export async function requireCurrentUser(request: Request): Promise<AppUser> {
