@@ -21,6 +21,7 @@ In the Vercel project, open **Settings → Environment Variables** and configure
 | Name | Purpose | Visibility |
 | --- | --- | --- |
 | `SUPABASE_URL` | Destination backend URL | Server |
+| `SUPABASE_PUBLISHABLE_KEY` | Destination public key for server-side public-client configuration | Server configuration, non-secret |
 | `SUPABASE_SERVICE_ROLE_KEY` | Destination server/service API key | Private, server only |
 | `SESSION_SECRET` | Session signing secret, at least 32 characters, supplied by a secure secret manager | Private, server only |
 | `VITE_SUPABASE_URL` | Same destination backend for browser recovery operations | Public |
@@ -29,6 +30,8 @@ In the Vercel project, open **Settings → Environment Variables** and configure
 Never use a `VITE_` prefix for the service key or session secret. Never commit real values to `.env.example`, source code, or Git. Public and server URLs must point to the same destination. A new session secret requires everyone to sign in again.
 
 Redeploy Vercel after saving settings: browser settings are included at build time, and previous deployments do not receive newly added environment variables automatically.
+
+The shared Vite configuration supports a Nitro Vercel preset, but the current app defaults to Cloudflare outside Lovable. Confirm the actual Vercel build target before deployment; the reported missing-key error does not establish that the rest of the deployment is configured correctly.
 
 ## Before switching users over
 
