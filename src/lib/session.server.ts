@@ -68,7 +68,9 @@ export async function readSession(token: string | undefined): Promise<AppUser | 
 }
 
 function isSecureRequest() {
-  return getRequest().url.startsWith("https:");
+  const request = getRequest();
+  const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  return forwarded === "https" || request.url.startsWith("https:");
 }
 
 // Over HTTPS the app may run embedded in another site's frame (e.g. the editor
