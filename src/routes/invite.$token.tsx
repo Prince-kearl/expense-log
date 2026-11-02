@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -178,8 +179,7 @@ function NewAccountForm({ token, email, teamName }: { token: string; email: stri
         </div>
         <div>
           <label className={labelClass}>Password</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={8}
             value={password}

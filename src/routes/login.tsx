@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -81,8 +82,7 @@ function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
               required
               value={password}

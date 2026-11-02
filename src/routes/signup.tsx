@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -82,8 +83,7 @@ function SignUpPage() {
           </div>
           <div>
             <label className={labelClass}>Password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               required
               minLength={8}

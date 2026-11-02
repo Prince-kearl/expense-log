@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, Monitor, Moon, Plus, Sun } from "lucide-react";
 import { useState } from "react";
@@ -103,8 +104,7 @@ export function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className={labelClass}>Current password</label>
-              <input
-                type="password"
+              <PasswordInput
                 autoComplete="current-password"
                 required
                 value={currentPassword}
@@ -114,8 +114,7 @@ export function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose
             </div>
             <div>
               <label className={labelClass}>New password</label>
-              <input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 required
                 minLength={8}

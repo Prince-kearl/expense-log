@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -115,8 +116,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className={labelClass}>Your password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
               required
               value={password}
