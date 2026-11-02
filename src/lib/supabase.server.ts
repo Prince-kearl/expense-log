@@ -105,21 +105,41 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 }
 
 export async function sendPasswordResetEmail(email: string, redirectTo: string) {
-  // Errors from this call could reveal whether an email is registered, so we
-  // deliberately swallow them — the caller always shows the same generic message.
-  await db().auth.resetPasswordForEmail(email, { redirectTo });
+  // A fresh implicit-flow client keeps recovery independent of server-side
+  // storage and avoids modifying the shared administrative client's session.
+  const auth = createServerClient();
+  const { error } = await auth.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) {
+    throw new Error(error.status === 429
+      ? "Too many reset requests. Please wait before trying again."
+      : "Unable to send the reset email right now. Please try again later.");
+  }
 }
 
 export async function getUserFromAccessToken(accessToken: string) {
-  const { data, error } = await db().auth.getUser(accessToken);
+  const auth = createServerClient();
+  const { data: verified, error: claimsError } = await auth.auth.getClaims(accessToken);
+  if (claimsError || !verified?.claims) return null;
+  const methods = verified.claims.amr;
+  if (!Array.isArray(methods) || !methods.some((entry) => entry.method === "recovery")) return null;
+  const { data, error } = await auth.auth.getUser(accessToken);
   if (error || !data.user) return null;
   return data.user;
 }
 
-export async function getUserFromRecoveryCode(code: string) {
-  const { data, error } = await db().auth.exchangeCodeForSession(code);
-  if (error || !data.user) return null;
-  return data.user;
+export async function updateRecoveryPassword(accessToken: string, newPassword: string) {
+  // Let Auth authorize the recovery session itself, rather than using an
+  // administrative password update that would bypass recovery safeguards.
+  const response = await fetch(`${required("SUPABASE_URL")}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: required("SUPABASE_PUBLISHABLE_KEY"),
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  if (!response.ok) throw new Error("Unable to reset your password. Request a new link and try again.");
 }
 
 export async function getUserProfile(userId: string): Promise<TeamUser | null> {
