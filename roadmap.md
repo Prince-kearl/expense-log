@@ -3,3 +3,5 @@
 - [x] Activate secured expense, team, budget tables and private receipts.
 - [x] Verify real account sign-in and expense readback.
 - [x] Apply the required package security update.
+- [ ] Add password visibility controls to password forms.
+- [ ] Repair and verify forgotten-password email and password reset.
