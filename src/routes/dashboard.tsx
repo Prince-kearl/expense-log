@@ -207,6 +207,51 @@ function DashboardPage() {
         ) : null}
       </KpiCarousel>
 
+      <div className="mt-5 grid gap-5 md:grid-cols-2">
+        {(() => {
+          const daysElapsed = now.getDate();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const mtdCount = moneyExpenses.filter((e) => e.expense_date.startsWith(currentMonthKey)).length;
+          return (
+            <Card className="p-4 sm:p-5">
+              <p className="text-[13px] font-medium text-muted-foreground">Month-to-date spending</p>
+              <p className="mt-1 text-[26px] font-semibold text-foreground">{formatMoney(thisMonth, currency)}</p>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-[12px] text-muted-foreground">
+                <div><p className="font-semibold text-foreground">{mtdCount}</p>expenses</div>
+                <div><p className="font-semibold text-foreground">{formatMoneyShort(thisMonth / daysElapsed, currency)}</p>per day</div>
+                <div><p className="font-semibold text-foreground">{daysInMonth - daysElapsed}</p>days left</div>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${(daysElapsed / daysInMonth) * 100}%` }} />
+              </div>
+            </Card>
+          );
+        })()}
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-medium text-muted-foreground">Latest expenses</p>
+            <Link to="/expenses/new" className="text-[13px] font-medium text-primary hover:underline">+ Add</Link>
+          </div>
+          {recent.length === 0 ? (
+            <p className="mt-4 text-[14px] text-muted-foreground">Nothing recorded yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-border/70">
+              {recent.slice(0, 3).map((e) => (
+                <li key={e.expense_id}>
+                  <Link to="/expenses/$expenseId" params={{ expenseId: e.expense_id }} className="flex items-center justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-medium text-foreground">{e.description || e.category}</p>
+                      <p className="text-[12px] text-muted-foreground">{formatDate(e.expense_date)}</p>
+                    </div>
+                    <span className="shrink-0 text-[14px] font-semibold text-foreground">{formatMoney(e.amount, e.currency)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
       {teamMembers.length > 0 ? (
         <div className="mt-5 flex justify-center">
           <TeamAvatarStack members={teamMembers} />
