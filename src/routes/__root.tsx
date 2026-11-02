@@ -104,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("cointrail-theme");var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
 
-const SW_REGISTER_SCRIPT = `if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}`;
+const SW_REGISTER_SCRIPT = `(function(){if(!("serviceWorker" in navigator))return;var h=location.hostname.toLowerCase();var preview=window.self!==window.top||/^(id-preview|preview)(-[a-z0-9]+)?--/.test(h)||/(^|\\.)lovableproject(-dev)?\\.com$/.test(h)||h==="localhost"||location.search.indexOf("sw=off")>-1;if(preview){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister();});});return;}window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
