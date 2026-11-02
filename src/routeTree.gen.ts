@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyExpensesRouteImport } from './routes/my-expenses'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -37,6 +39,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -45,6 +52,11 @@ const LoginRoute = LoginRouteImport.update({
 const MyExpensesRoute = MyExpensesRouteImport.update({
   id: '/my-expenses',
   path: '/my-expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -116,8 +128,10 @@ const ApiReceiptsExpenseIdRoute = ApiReceiptsExpenseIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -135,8 +149,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -155,8 +171,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/login': typeof LoginRoute
   '/my-expenses': typeof MyExpensesRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -176,8 +194,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/delete-account'
     | '/login'
     | '/my-expenses'
+    | '/privacy'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -195,8 +215,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/delete-account'
     | '/login'
     | '/my-expenses'
+    | '/privacy'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -214,8 +236,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/delete-account'
     | '/login'
     | '/my-expenses'
+    | '/privacy'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -234,8 +258,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  DeleteAccountRoute: typeof DeleteAccountRoute
   LoginRoute: typeof LoginRoute
   MyExpensesRoute: typeof MyExpensesRoute
+  PrivacyRoute: typeof PrivacyRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
@@ -267,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -279,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/my-expenses'
       fullPath: '/my-expenses'
       preLoaderRoute: typeof MyExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -378,8 +418,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  DeleteAccountRoute: DeleteAccountRoute,
   LoginRoute: LoginRoute,
   MyExpensesRoute: MyExpensesRoute,
+  PrivacyRoute: PrivacyRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
