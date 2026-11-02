@@ -4,3 +4,5 @@ Server Supabase clients strip opaque API keys from Authorization and send them v
 Over HTTPS (including behind the preview proxy via x-forwarded-proto) the session cookie is SameSite=None; Secure; Partitioned, because the editor preview embeds the app in a cross-site frame where Lax cookies are dropped.
 Password fields use the shared PasswordInput control so visibility remains consistent across account forms.
 Password recovery validates a recovery-method Auth credential and updates through the user's Auth endpoint before issuing the existing signed-cookie session; ordinary access tokens cannot authorize recovery.
+Vercel serves the app only as a pass-through proxy: vercel.json rewrites forward all traffic to the published Lovable app, so no backend keys are configured on Vercel; remove the rewrite before ever switching to a self-managed backend (see DEPLOYMENT.md).
+Absolute URLs the app generates for users (invite links, reset links) must prefer the browser-visible origin (origin / x-forwarded-host headers) over the server request URL, because Vercel and the preview proxy terminate the public domain.

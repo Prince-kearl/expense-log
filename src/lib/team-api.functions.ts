@@ -182,7 +182,10 @@ export const inviteMember = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireCurrentUser(getRequest());
     const invitation = await createInvitation(user.team_id, data.email, user.user_id);
-    const origin = new URL(getRequest().url).origin;
+    const url = new URL(getRequest().url);
+    const host = getRequest().headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? url.host;
+    const proto = getRequest().headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? url.protocol.replace(":", "");
+    const origin = `${proto}://${host}`;
     return { email: data.email, inviteUrl: `${origin}/invite/${invitation.token}` };
   });
 
