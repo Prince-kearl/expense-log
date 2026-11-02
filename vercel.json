@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "https://tidy-ledger-receipt-hub.lovable.app/$1"
+    }
+  ]
+}
