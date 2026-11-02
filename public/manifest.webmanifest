@@ -41,5 +41,66 @@
     "finance",
     "business",
     "productivity"
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-login.png",
+      "sizes": "824x1830",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Sign in to CoinTrail"
+    },
+    {
+      "src": "/screenshots/wide-login.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "CoinTrail on desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add expense",
+      "short_name": "Add",
+      "url": "/expenses/new",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "My expenses",
+      "short_name": "Mine",
+      "url": "/my-expenses",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "url": "/reports",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 420
+  }
 }
