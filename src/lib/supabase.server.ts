@@ -121,7 +121,7 @@ export async function getUserFromAccessToken(accessToken: string) {
   const { data: verified, error: claimsError } = await auth.auth.getClaims(accessToken);
   if (claimsError || !verified?.claims) return null;
   const methods = verified.claims.amr;
-  if (!Array.isArray(methods) || !methods.some((entry) => entry.method === "recovery")) return null;
+  if (!Array.isArray(methods) || !methods.some((entry) => typeof entry !== "string" && entry.method === "recovery")) return null;
   const { data, error } = await auth.auth.getUser(accessToken);
   if (error || !data.user) return null;
   return data.user;
