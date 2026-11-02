@@ -1,5 +1,5 @@
 - [x] Connect the missing account and expense service.
 - [x] Configure the session signing secret and email login.
 - [x] Activate secured expense, team, budget tables and private receipts.
-- [ ] Verify real account sign-in and expense readback.
-- [ ] Apply the required package security update.
+- [x] Verify real account sign-in and expense readback.
+- [x] Apply the required package security update.
