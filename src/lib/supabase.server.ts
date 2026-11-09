@@ -127,6 +127,13 @@ export async function getUserFromAccessToken(accessToken: string) {
   return data.user;
 }
 
+export async function getVerifiedSignInUser(accessToken: string) {
+  const auth = createServerClient();
+  const { data, error } = await auth.auth.getUser(accessToken);
+  if (error || !data.user || !data.user.email_confirmed_at) return null;
+  return data.user;
+}
+
 export async function updateRecoveryPassword(accessToken: string, newPassword: string) {
   // Let Auth authorize the recovery session itself, rather than using an
   // administrative password update that would bypass recovery safeguards.

@@ -57,11 +57,17 @@
   --color-sky: var(--sky);
   --color-sky-soft: var(--sky-soft);
   --color-teal: var(--teal);
+  --color-google-background: var(--google-background);
+  --color-google-foreground: var(--google-foreground);
+  --color-google-border: var(--google-border);
   --shadow-card: 0 1px 2px 0 oklch(0.2 0.03 260 / 0.05);
   --shadow-elevated: 0 4px 16px -4px oklch(0.2 0.03 260 / 0.08);
 }
 
 :root {
+  --google-background: #FFFFFF;
+  --google-foreground: #1F1F1F;
+  --google-border: #747775;
   --radius: 0.75rem;
   --background: oklch(1 0 0);
   --page-bg: oklch(0.985 0.002 250);
@@ -103,6 +109,9 @@
 }
 
 .dark {
+  --google-background: #131314;
+  --google-foreground: #E3E3E3;
+  --google-border: #8E918F;
   --background: oklch(0.18 0 0);
   --page-bg: oklch(0.16 0 0);
   --foreground: oklch(0.98 0.003 248);
