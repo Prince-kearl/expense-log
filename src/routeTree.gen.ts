@@ -20,6 +20,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TimeRouteImport } from './routes/time'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses.index'
 import { Route as ExpensesExpenseIdRouteImport } from './routes/expenses.$expenseId'
 import { Route as ExpensesNewRouteImport } from './routes/expenses.new'
@@ -84,6 +85,11 @@ const TimeRoute = TimeRouteImport.update({
   path: '/time',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpensesIndexRoute = ExpensesIndexRouteImport.update({
   id: '/expenses/',
   path: '/expenses/',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/time': typeof TimeRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/expenses/$expenseId': typeof ExpensesExpenseIdRoute
   '/expenses/new': typeof ExpensesNewRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/time'
+    | '/auth/callback'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/invite/$token'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/time'
+    | '/auth/callback'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/invite/$token'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/time'
+    | '/auth/callback'
     | '/expenses/$expenseId'
     | '/expenses/new'
     | '/invite/$token'
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   TimeRoute: typeof TimeRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   ExpensesExpenseIdRoute: typeof ExpensesExpenseIdRoute
   ExpensesNewRoute: typeof ExpensesNewRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -356,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expenses/': {
       id: '/expenses/'
       path: '/expenses'
@@ -427,6 +447,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   TimeRoute: TimeRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   ExpensesExpenseIdRoute: ExpensesExpenseIdRoute,
   ExpensesNewRoute: ExpensesNewRoute,
   InviteTokenRoute: InviteTokenRoute,
