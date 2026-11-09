@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_search_access_state: {
+        Row: {
+          blocked_at: string
+          message: string
+          model: string
+        }
+        Insert: {
+          blocked_at?: string
+          message: string
+          model: string
+        }
+        Update: {
+          blocked_at?: string
+          message?: string
+          model?: string
+        }
+        Relationships: []
+      }
       budgets: {
         Row: {
           amount: number
