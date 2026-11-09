@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, MoreVertical, Plus, RotateCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { ExpenseAiSearch } from "@/components/expense-ai-search";
 import {
   Card,
   CategoryPill,
@@ -173,6 +174,8 @@ function ExpensesPage() {
           </>
         }
       />
+
+      <ExpenseAiSearch />
 
       <Card className="mb-5 flex flex-wrap items-end gap-4 p-4 sm:p-5">
         <div className="relative min-w-0 flex-1 basis-full sm:min-w-[260px]">

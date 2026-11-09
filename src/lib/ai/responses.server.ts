@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, type ModelMessage } from "ai";
+import { streamText, Output, type ModelMessage } from "ai";
+import type { searchCriteriaSchema } from "../expense-search";
 
 import {
   createLovableAiGatewayRunIdFetch,
@@ -12,6 +13,7 @@ export function createResponsesCall(
   config: { baseURL: string; apiKey: string; model: string },
   messages: ModelMessage[],
   instructions?: string,
+  schema?: typeof searchCriteriaSchema,
 ) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   const provider = createOpenAI({
@@ -26,6 +28,7 @@ export function createResponsesCall(
     ...(instructions ? { instructions } : {}),
     messages,
     maxRetries: 0,
+    ...(schema ? { output: Output.object({ schema }) } : {}),
     abortSignal: request.signal,
     providerOptions: {
       openai: {
