@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { PrimaryButton, fieldClass, labelClass } from "@/components/expense-ui";
 import { signIn } from "@/lib/team-api.functions";
+import { GoogleSignIn } from "@/components/google-sign-in";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -38,7 +40,7 @@ function LoginPage() {
     setError("");
     try {
       await doSignIn({ data: { email, password } });
-      window.location.assign(redirect ?? "/dashboard");
+      window.location.assign(safeAuthRedirect(redirect));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
       setIsSubmitting(false);
@@ -95,6 +97,7 @@ function LoginPage() {
             {isSubmitting ? "Signing in..." : "Sign In"}
           </PrimaryButton>
         </form>
+        <GoogleSignIn redirect={redirect} disabled={isSubmitting} />
 
         <p className="mt-6 text-[13px] text-muted-foreground">
           Don&apos;t have an account?{" "}

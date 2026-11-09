@@ -29,6 +29,7 @@ import {
   getTimeEntriesForTeam,
   getTimeEntriesForUser,
   getUserFromAccessToken,
+  getVerifiedSignInUser,
   getUserProfile,
   insertTimeEntry,
   joinTeam,
@@ -110,6 +111,28 @@ export const signIn = createServerFn({ method: "POST" })
 
 export const signOutUser = createServerFn({ method: "POST" }).handler(async () => {
   clearSession();
+});
+
+// Exchange a provider-verified bearer for the same cookie used by password login.
+// Identity and team permissions always come from live server reads, never input.
+export const finishOAuthSignIn = createServerFn({ method: "POST" }).handler(async () => {
+  const authorization = getRequest().headers.get("authorization");
+  const token = authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token || token.length > 16000) throw new Error("Google sign-in could not be verified. Please try again.");
+  const authUser = await getVerifiedSignInUser(token);
+  if (!authUser) throw new Error("Your sign-in expired. Please try again.");
+  const [profile, team] = await Promise.all([
+    getUserProfile(authUser.id),
+    resolveInitialTeamForUser(authUser.id),
+  ]);
+  if (!profile || !team) throw new Error("This account is not part of a team. Ask your team owner for an invitation.");
+  const user: AppUser = {
+    user_id: authUser.id, name: profile.name, email: profile.email,
+    team_id: team.team_id, team_name: team.team_name, role: team.role,
+  };
+  await establishSession(user);
+  await setLastActiveTeamId(user.user_id, user.team_id);
+  return { signedIn: true };
 });
 
 export const getCurrentTeam = createServerFn({ method: "GET" }).handler(async () => {

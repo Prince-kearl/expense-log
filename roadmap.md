@@ -8,3 +8,8 @@
 - [ ] Verify email arrival and successful reset through a real inbox link — blocked by unavailable inbox access.
 - [x] Keep Vercel using the published-app pass-through instead of migrating the backend.
 - [x] Add and verify authenticated plain-language AI expense search with live Gateway matching, expense-detail readback, mobile layout, and permission tests.
+- [ ] Prepare Android package with Play app-signing fingerprint — waiting for the user's certificate fingerprint and existing upload key.
+- [ ] Submit Android release to Internal testing — waiting for Play Console access / user upload.
+- [ ] Capture real signed-in dashboard screenshots — waiting for an app session compatible with signed-cookie sign-in.
+- [ ] Prepare Play Store title, descriptions, category and policy link.
+- [ ] Add Google sign-in while preserving the existing signed-cookie session.
