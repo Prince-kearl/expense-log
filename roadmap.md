@@ -7,4 +7,4 @@
 - [x] Repair recovery handling; verify email requests, password matching, invalid/expired links, and recovery authorization tests.
 - [ ] Verify email arrival and successful reset through a real inbox link — blocked by unavailable inbox access.
 - [x] Keep Vercel using the published-app pass-through instead of migrating the backend.
-- [ ] Add and verify authenticated plain-language AI expense search.
+- [x] Add and verify authenticated plain-language AI expense search with live Gateway matching, expense-detail readback, mobile layout, and permission tests.
